@@ -131,23 +131,37 @@ fun List<Int>.executeIntCodes(): List<Int> {
     val currentState = toMutableList()
     var currentIndex = 0
     while(true) {
-        when(currentState.getOrNull(currentIndex)) {
+        when(currentState[currentIndex]) {
             1 -> {
-                if (currentIndex + 3 >= currentState.size - 1) return currentState.toList()
                 currentState[currentState[currentIndex + 3]] = currentState[currentState[currentIndex + 1]] + currentState[currentState[currentIndex + 2]]
                 currentIndex += 4
             }
             2 -> {
-                if (currentIndex + 3 >= currentState.size - 1) return currentState.toList()
                 currentState[currentState[currentIndex + 3]] = currentState[currentState[currentIndex + 1]] * currentState[currentState[currentIndex + 2]]
                 currentIndex += 4
             }
-            99, null -> return currentState.toList()
+            99 -> return currentState.toList()
         }
     }
 }
 
 fun parseIntCodes(inputString: String): List<Int> = inputString.split(",").map { it.trim().toInt() }
+
+fun findNoneAndVerb(input: List<Int>, expected: Int): Int {
+    for (none in 0..100)
+        for (verb in 0..100) {
+            val probeInput = input.toMutableList()
+            probeInput[1] = none
+            probeInput[2] = verb
+            try {
+                val result = probeInput.executeIntCodes()
+                if (result[0] == expected) return none * 100 + verb
+            } catch(e: Exception) {
+                // Ignore out of bound programs
+            }
+        }
+    throw IllegalArgumentException("No none/verb found beween 0 and 100")
+}
 
 class Day02Spec : Spek({
 
@@ -183,20 +197,18 @@ class Day02Spec : Spek({
         given("example input from part 1") {
             val exerciseInput = parseIntCodes(exerciseInputString)
             on("find none and verb") {
-                val (none, verb) = findNoneAndVerb(exerciseInput, 3895705)!!
+                val result = findNoneAndVerb(exerciseInput, 3895705)
                 it("should have the right result") {
-                    none `should equal` 12
-                    verb `should equal` 2
+                    result `should equal` 1202
                 }
             }
         }
         given("exercise input") {
             val exerciseInput = parseIntCodes(exerciseInputString).toMutableList()
             on("find none and verb") {
-                val (none, verb) = findNoneAndVerb(exerciseInput, 19690720)!!
+                val result = findNoneAndVerb(exerciseInput, 19690720)
                 it("should have the right result") {
-                    none `should equal` 12
-                    verb `should equal` 2
+                    result `should equal` 6417
                 }
             }
         }
@@ -205,14 +217,3 @@ class Day02Spec : Spek({
 
 })
 
-fun findNoneAndVerb(input: List<Int>, expected: Int): Pair<Int, Int>? {
-    for (none in 0..1000)
-        for (verb in 0..1000) {
-            val probeInput = input.toMutableList()
-            probeInput[1] = none
-            probeInput[2] = verb
-            val result = probeInput.executeIntCodes()
-            if (result[0] == expected) return none to verb
-        }
-    throw IllegalArgumentException("No none/verb found for input in time box")
-}
