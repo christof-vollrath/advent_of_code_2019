@@ -1,3 +1,10 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
+
 /*
 --- Day 2: 1202 Program Alarm ---
 
@@ -79,4 +86,59 @@ What value is left at position 0 after the program halts?
 
 */
 
-val inputString = "1,0,0,3,1,1,2,3,1,3,4,3,1,5,0,3,2,1,9,19,1,19,5,23,2,23,13,27,1,10,27,31,2,31,6,35,1,5,35,39,1,39,10,43,2,9,43,47,1,47,5,51,2,51,9,55,1,13,55,59,1,13,59,63,1,6,63,67,2,13,67,71,1,10,71,75,2,13,75,79,1,5,79,83,2,83,9,87,2,87,13,91,1,91,5,95,2,9,95,99,1,99,5,103,1,2,103,107,1,10,107,0,99,2,14,0,0"
+val exerciseInputString = "1,0,0,3,1,1,2,3,1,3,4,3,1,5,0,3,2,1,9,19,1,19,5,23,2,23,13,27,1,10,27,31,2,31,6,35,1,5,35,39,1,39,10,43,2,9,43,47,1,47,5,51,2,51,9,55,1,13,55,59,1,13,59,63,1,6,63,67,2,13,67,71,1,10,71,75,2,13,75,79,1,5,79,83,2,83,9,87,2,87,13,91,1,91,5,95,2,9,95,99,1,99,5,103,1,2,103,107,1,10,107,0,99,2,14,0,0"
+
+class Day02Spec : Spek({
+
+    describe("part 1") {
+        given("example input") {
+            val inputString = "1,9,10,3,2,3,11,0,99,30,40,50"
+            on("parse and execute") {
+                val input = parseIntCodes(inputString)
+                val result = input.executeIntCodes()
+                it("should have the right result") {
+                    result `should equal` listOf(
+                        3500, 9, 10, 70,
+                        2, 3, 11, 0,
+                        99,
+                        30, 40, 50
+                    )
+                }
+            }
+        }
+        given("exercise input") {
+            val exerciseInput = parseIntCodes(exerciseInputString).toMutableList()
+            exerciseInput[1] = 12
+            exerciseInput[2] = 2
+            on("execute") {
+                val result = exerciseInput.executeIntCodes()
+                it("should have the right result") {
+                    result[0] `should equal` 3895705
+                }
+            }
+        }
+    }
+})
+
+private fun List<Int>.executeIntCodes(): List<Int> {
+    val currentState = toMutableList()
+    var currentIndex = 0
+    while(true) {
+        println(currentIndex)
+        println(currentState)
+        when(currentState[currentIndex]) {
+            1 -> {
+                currentState[currentState[currentIndex + 3]] = currentState[currentState[currentIndex + 1]] + currentState[currentState[currentIndex + 2]]
+                currentIndex += 4
+            }
+            2 -> {
+                println("${currentIndex + 3}")
+                currentState[currentState[currentIndex + 3]] = currentState[currentState[currentIndex + 1]] * currentState[currentState[currentIndex + 2]]
+                currentIndex += 4
+            }
+            99 -> return currentState.toList()
+        }
+    }
+}
+
+fun parseIntCodes(inputString: String): List<Int> = inputString.split(",").map { it.trim().toInt() }
