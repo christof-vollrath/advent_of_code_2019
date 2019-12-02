@@ -75,6 +75,11 @@ fun parseMasses(inputString: String): List<Int> =
 
 fun calculateRequiredFuel(mass: Int): Int = mass / 3 - 2
 
+fun calculateRequiredFuelRecursively(mass: Int): Int {
+    val fuel = calculateRequiredFuel(mass)
+    return if (fuel <= 0) 0
+    else fuel + calculateRequiredFuelRecursively(fuel)
+}
 
 class Day01Spec : Spek({
 
@@ -144,10 +149,4 @@ class Day01Spec : Spek({
 
     }
 })
-
-fun calculateRequiredFuelRecursively(mass: Int): Int {
-    val fuel = calculateRequiredFuel(mass)
-    return if (fuel <= 0) 0
-    else fuel + calculateRequiredFuelRecursively(fuel)
-}
 
