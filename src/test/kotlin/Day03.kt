@@ -1,4 +1,3 @@
-import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -109,6 +108,8 @@ What is the fewest combined steps the wires must take to reach an intersection?
 
 fun Set<Coord2>.findClosest(): Coord2? = minBy { it manhattanDistance Coord2(0, 0)}
 
+fun Set<Pair<Coord2, Int>>.findShortest(): Int? = minBy { it.second }?.second
+
 fun List<List<String>>.fallowWires(): Set<Coord2> {
     val grid = WireGrid()
     return mapIndexed { i, wireInstructions ->
@@ -116,7 +117,18 @@ fun List<List<String>>.fallowWires(): Set<Coord2> {
     }.flatten().toSet()
 }
 
-data class GridPoint(var c: Char, val i: Int? = null)
+fun List<List<String>>.fallowWiresWithDistances(): Set<Pair<Coord2, Int>> {
+    val grid = WireGrid()
+    return mapIndexed { i, wireInstructions ->
+        wireInstructions.fallowWireWithDistances(grid, i)
+    }.flatten().toSet()
+}
+
+data class GridPoint(var c: Char, val iteration: Int? = null, val distances: MutableList<Int> = MutableList(2) { 0 }) {
+    fun setDistance(iteration: Int, distance: Int) {
+        distances[iteration] = distance
+    }
+}
 class WireGrid {
     var maxX = 0
     var minX = 0
@@ -161,7 +173,39 @@ fun List<String>.fallowWire(grid: WireGrid, iteration: Int): Set<Coord2> {
                     else '-'
                     grid[pos] = GridPoint(gridChar, iteration)
                 } else {
-                    if (existingGridPoint.i != iteration) yield(pos) // Only when not crossing itself
+                    if (existingGridPoint.iteration != iteration) yield(pos) // Only when not crossing itself
+                    existingGridPoint.c = 'x'
+                }
+            }
+        }
+    }.toSet()
+    if (grid.size <= 500) grid.print()
+    return result
+}
+
+fun List<String>.fallowWireWithDistances(grid: WireGrid, iteration: Int): Set<Pair<Coord2, Int>> {
+    println(this)
+    var pos = Coord2(0, 0)
+    var distance = 0
+    grid[pos] = GridPoint('o')
+    val result = sequence {
+        forEach { instruction ->
+            val (direction, steps) = instruction.parseWireInstruction()
+            for (i in 1 .. steps) {
+                pos += direction.direction
+                distance++
+                val existingGridPoint = grid[pos]
+                if (existingGridPoint == null) {
+                    val gridChar = if (i == steps) '+'
+                    else if (direction in setOf(WireDirection.Up, WireDirection.Down)) '|'
+                    else '-'
+                    val newGridPoint = GridPoint(gridChar, iteration)
+                    newGridPoint.setDistance(iteration, distance)
+                    grid[pos] = newGridPoint
+                } else {
+                    if ( existingGridPoint.distances[iteration] == 0)
+                        existingGridPoint.setDistance(iteration, distance)
+                    if (existingGridPoint.iteration != iteration) yield(pos to existingGridPoint.distances.sum()) // Only when not crossing itself
                     existingGridPoint.c = 'x'
                 }
             }
@@ -251,13 +295,23 @@ class Day03Spec : Spek({
             on("parse and fallow wire") {
                 val input = inputStrings.parseWires()
                 val intersectionsWithDistances = input.fallowWiresWithDistances()
-                it("should have the right crosses") {
+                it("should have the right distances") {
                     intersectionsWithDistances `should equal` setOf(Coord2(3, 3) to 40, Coord2(6, 5) to 30)
                 }
-                val result = intersections.findClosest()!!
-                val resultDistance = Coord2(0, 0) manhattanDistance result
-                it("should have calculated the correct distance") {
-                    resultDistance `should equal` 6
+                val result = intersectionsWithDistances.findShortest()!!
+                it("should have found the shortest distance") {
+                    result `should equal` 30
+                }
+            }
+        }
+        given("exercise input") {
+            val inputStrings = readResource("day03Input.txt")!!
+            on("parse and find intersection with shortest diestance") {
+                val input = inputStrings.parseWires()
+                val intersectionsWithDistances = input.fallowWiresWithDistances()
+                val result = intersectionsWithDistances.findShortest()!!
+                it("should have found the shortest distance") {
+                    result `should equal` 13190
                 }
             }
         }
