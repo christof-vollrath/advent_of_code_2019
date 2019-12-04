@@ -26,37 +26,44 @@ How many different passwords within the range given in your puzzle input meet th
 
 Your puzzle input is 264793-803935.
 
+--- Part Two ---
+
+An Elf just remembered one more important detail:
+the two adjacent matching digits are not part of a larger group of matching digits.
+
+Given this additional criterion, but still ignoring the range rule, the following are now true:
+
+112233 meets these criteria because the digits never decrease and all repeated digits are exactly two digits long.
+123444 no longer meets the criteria (the repeated 44 is part of a larger group of 444).
+111122 meets the criteria (even though 1 is repeated more than twice, it still contains a double 22).
+How many different passwords within the range given in your puzzle input meet all of the criteria?
+
  */
-
-class Day04Spec : Spek({
-
-    describe("part 1") {
-        describe("enumerate all numbers in range") {
-            val count = candidates().count()
-            count `should equal` 803935 - 264793 + 1
-        }
-        describe("calculate required fuel") {
-            val testData = arrayOf(
-                data(111111, true),
-                data(223450, false),
-                data(123789, false)
-            )
-            onData("fallows password rules %s", with = *testData) { password, expected ->
-                it("should return $expected") {
-                    fallowsPasswordRules(password) `should equal` expected
-                }
-            }
-        }
-        describe("count passwords") {
-            val count = candidates().filter {fallowsPasswordRules(it) }.count()
-            count `should equal` 966
-        }
-    }
-})
 
 fun fallowsPasswordRules(password: Int): Boolean {
     val chars = password.toString().toList()
     return sixDigits(chars) && containsTwins(chars) && neverDecreasingDigits(chars)
+}
+
+fun fallowsExtendedPasswordRules(password: Int): Boolean {
+    val chars = password.toString().toList()
+    return sixDigits(chars) && containsTwins(chars) && neverDecreasingDigits(chars) && containsExactTwin(chars)
+}
+
+fun containsExactTwin(chars: List<Char>): Boolean {
+    var sameCharCount = 0
+    var recentChar: Char? = null
+    chars.forEach { c ->
+        if (c == recentChar) {
+            sameCharCount++
+        } else {
+            if (sameCharCount == 1) // found exact twin fallowd by another char
+                return true
+            sameCharCount = 0
+        }
+        recentChar = c
+    }
+    return sameCharCount == 1 // eventually exact twin at the end
 }
 
 fun neverDecreasingDigits(chars: List<Char>): Boolean {
@@ -84,3 +91,43 @@ fun candidates(): Sequence<Int> {
         }
     }
 }
+
+class Day04Spec : Spek({
+
+    describe("part 1") {
+        describe("check password rules") {
+            val testData = arrayOf(
+                data(111111, true),
+                data(223450, false),
+                data(123789, false)
+            )
+            onData("fallows password rules %s", with = *testData) { password, expected ->
+                it("should return $expected") {
+                    fallowsPasswordRules(password) `should equal` expected
+                }
+            }
+        }
+        describe("count passwords") {
+            val count = candidates().filter {fallowsPasswordRules(it) }.count()
+            count `should equal` 966
+        }
+    }
+    describe("part 2") {
+        describe("check extended password rules") {
+            val testData = arrayOf(
+                data(112233, true),
+                data(123444, false),
+                data(111122, true)
+            )
+            onData("fallows password rules %s", with = *testData) { password, expected ->
+                it("should return $expected") {
+                    fallowsExtendedPasswordRules(password) `should equal` expected
+                }
+            }
+        }
+        describe("count passwords") {
+            val count = candidates().filter {fallowsExtendedPasswordRules(it) }.count()
+            count `should equal` 628
+        }
+    }
+})
