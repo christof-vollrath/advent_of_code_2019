@@ -4,6 +4,8 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
 import java.lang.IllegalArgumentException
 
 /*
@@ -92,6 +94,69 @@ If all outputs were zero except the diagnostic code, the diagnostic program ran 
 
 After providing 1 to the only input instruction and passing all the tests,
 what diagnostic code does the program produce?
+
+--- Part Two ---
+
+The air conditioner comes online!
+Its cold air feels good for a while, but then the TEST alarms start to go off.
+Since the air conditioner can't vent its heat anywhere but back into the spacecraft,
+it's actually making the air inside the ship warmer.
+
+Instead, you'll need to use the TEST to extend the thermal radiators.
+Fortunately, the diagnostic program (your puzzle input) is already equipped for this.
+Unfortunately, your Intcode computer is not.
+
+Your computer is only missing a few opcodes:
+
+Opcode 5 is jump-if-true: if the first parameter is non-zero,
+it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing.
+Opcode 6 is jump-if-false: if the first parameter is zero,
+it sets the instruction pointer to the value from the second parameter. Otherwise, it does nothing.
+Opcode 7 is less than: if the first parameter is less than the second parameter,
+it stores 1 in the position given by the third parameter. Otherwise, it stores 0.
+Opcode 8 is equals: if the first parameter is equal to the second parameter,
+it stores 1 in the position given by the third parameter. Otherwise, it stores 0.
+
+Like all instructions, these instructions need to support parameter modes as described above.
+
+Normally, after an instruction is finished, the instruction pointer increases
+by the number of values in that instruction.
+However, if the instruction modifies the instruction pointer,
+that value is used and the instruction pointer is not automatically increased.
+
+For example, here are several programs that take one input,
+compare it to the value 8, and then produce one output:
+
+3,9,8,9,10,9,4,9,99,-1,8 - Using position mode, consider whether the input is equal to 8;
+output 1 (if it is) or 0 (if it is not).
+3,9,7,9,10,9,4,9,99,-1,8 - Using position mode, consider whether the input is less than 8;
+output 1 (if it is) or 0 (if it is not).
+3,3,1108,-1,8,3,4,3,99 - Using immediate mode, consider whether the input is equal to 8;
+output 1 (if it is) or 0 (if it is not).
+3,3,1107,-1,8,3,4,3,99 - Using immediate mode, consider whether the input is less than 8;
+output 1 (if it is) or 0 (if it is not).
+
+Here are some jump tests that take an input, then output 0 if the input was zero or 1 if the input was non-zero:
+
+3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9 (using position mode)
+3,3,1105,-1,9,1101,0,0,12,4,12,99,1 (using immediate mode)
+
+Here's a larger example:
+
+3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,
+1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,
+999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99
+
+The above example program uses an input instruction to ask for a single number.
+The program will then output 999 if the input value is below 8,
+output 1000 if the input value is equal to 8, or output 1001 if the input value is greater than 8.
+
+This time, when the TEST diagnostic program runs its input instruction to get the ID of the system to test,
+provide it 5, the ID for the ship's thermal radiator controller.
+This diagnostic test suite only outputs one number, the diagnostic code.
+
+What is the diagnostic code for system ID 5?
+
  */
 
 fun List<Int>.executeExtendedIntCodes(input: List<Int>): List<Int> {
@@ -105,27 +170,51 @@ fun List<Int>.executeExtendedIntCodes(input: List<Int>): List<Int> {
         println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
         when(command) {
             1 -> { // Add
-                val indexes = getParameterIndexes3Parameters(currentIndex, parameterModes, currentState)
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
                 currentState[indexes[2]] = currentState[indexes[0]] + currentState[indexes[1]]
                 currentIndex += 4
             }
             2 -> { // Multiply
-                val indexes = getParameterIndexes3Parameters(currentIndex, parameterModes, currentState)
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
                 currentState[indexes[2]] = currentState[indexes[0]] * currentState[indexes[1]]
                 currentIndex += 4
             }
             3 -> { // Input
                 val inputInt = inputMutable.first()
                 inputMutable.removeAt(0)
-                val index = getParameterIndex1Parameter(currentIndex, parameterModes, currentState)
-                currentState[index] = inputInt
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
+                currentState[indexes[0]] = inputInt
                 currentIndex += 2
             }
             4 -> { // Input
-                val index = getParameterIndex1Parameter(currentIndex, parameterModes, currentState)
-                val outputInt = currentState[index]
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
+                val outputInt = currentState[indexes[0]]
                 outputMutable += outputInt
                 currentIndex += 2
+            }
+            5 -> { // Jump if true
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..2)
+                if (currentState[indexes[0]] != 0)
+                    currentIndex = currentState[indexes[1]]
+                else
+                    currentIndex += 3
+            }
+            6 -> { // Jump if false
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..2)
+                if (currentState[indexes[0]] == 0)
+                    currentIndex = currentState[indexes[1]]
+                else
+                    currentIndex += 3
+            }
+            7 -> { // Less than
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
+                currentState[indexes[2]] = if (currentState[indexes[0]] < currentState[indexes[1]]) 1 else 0
+                currentIndex += 4
+            }
+            8 -> { // Equals
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
+                currentState[indexes[2]] = if (currentState[indexes[0]] == currentState[indexes[1]]) 1 else 0
+                currentIndex += 4
             }
             99 -> return outputMutable
             else -> throw IllegalArgumentException("currentIndex=$currentIndex command=$command")
@@ -146,15 +235,9 @@ fun Int.toCommand(): Pair<Int, List<Boolean>> {
     return command to parameterModes
 }
 
-fun getParameterIndexes3Parameters(currentIndex: Int, parameterModes: List<Boolean>, currentState: List<Int>) = (1..3).map { offset ->
+fun getParameterIndexes(currentIndex: Int, parameterModes: List<Boolean>, currentState: List<Int>, range: IntRange) = range.map { offset ->
     val index = currentIndex + offset
     if (parameterModes[offset - 1]) index // immediate
-    else currentState[index]
-}
-
-fun getParameterIndex1Parameter(currentIndex: Int, parameterModes: List<Boolean>, currentState: List<Int>): Int {
-    val index = currentIndex + 1
-    return if (parameterModes[0]) index // immediate
     else currentState[index]
 }
 
@@ -182,6 +265,63 @@ class Day05Spec : Spek({
                 }
             }
         }
+    }
+    describe("part 2") {
+        describe("examples") {
+            val testData = arrayOf(
+                data("3,9,8,9,10,9,4,9,99,-1,8", 1, listOf(0)),
+                data("3,9,8,9,10,9,4,9,99,-1,8", 8, listOf(1)),
+                data("3,9,8,9,10,9,4,9,99,-1,8", 9, listOf(0)),
 
+                data("3,9,7,9,10,9,4,9,99,-1,8", 2, listOf(1)),
+                data("3,9,7,9,10,9,4,9,99,-1,8", 8, listOf(0)),
+                data("3,9,7,9,10,9,4,9,99,-1,8", 9, listOf(0)),
+
+                data("3,3,1108,-1,8,3,4,3,99", 3, listOf(0)),
+                data("3,3,1108,-1,8,3,4,3,99", 8, listOf(1)),
+                data("3,3,1108,-1,8,3,4,3,99", 10, listOf(0)),
+
+                data("3,3,1107,-1,8,3,4,3,99", 4, listOf(1)),
+                data("3,3,1107,-1,8,3,4,3,99", 8, listOf(0)),
+                data("3,3,1107,-1,8,3,4,3,99", 9, listOf(0)),
+
+                data("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 0, listOf(0)),
+                data("3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9", 12, listOf(1)),
+
+                data("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 0, listOf(0)),
+                data("3,3,1105,-1,9,1101,0,0,12,4,12,99,1", 120, listOf(1)),
+
+                data("""3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,
+                        1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,
+                        999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99""".trimIndent(), 7, listOf(999)),
+                data("""3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,
+                        1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,
+                        999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99""".trimIndent(), 8, listOf(1000)),
+                data("""3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,
+                        1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,
+                        999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99""".trimIndent(), 9, listOf(1001))
+                )
+            onData("intCode %s input %s", with = *testData) { intCodesString, inputValue, expected ->
+                val intCodes = parseIntCodes(intCodesString)
+                val input = listOf(inputValue)
+                val result = intCodes.executeExtendedIntCodes(input)
+                it("should have the right result") {
+                    result `should equal` expected
+                }
+            }
+        }
+        given("exercise input") {
+            val intCodesString = readResource("day05Input.txt")!!
+            on("parse and execute") {
+                val intCodes = parseIntCodes(intCodesString)
+                val input = listOf(5)
+                val result = intCodes.executeExtendedIntCodes(input)
+                println(result)
+                it("should have the right diagnostic code") {
+                    val diagnosticCode = result.first()
+                    diagnosticCode `should equal` 11460760
+                }
+            }
+        }
     }
 })

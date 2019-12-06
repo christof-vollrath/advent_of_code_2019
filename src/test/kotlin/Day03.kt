@@ -240,7 +240,6 @@ class Day03Spec : Spek({
                     resultDistance `should equal` expected
                 }
             }
-
         }
         given("exercise input") {
             val inputStrings = readResource("day03Input.txt")!!
