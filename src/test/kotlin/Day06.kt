@@ -174,17 +174,67 @@ class Day06Spec : Spek({
             }
         }
     }
+    describe("part 2") {
+        given("example") {
+            val inputString = """
+                COM)B
+                B)C
+                C)D
+                D)E
+                E)F
+                B)G
+                G)H
+                D)I
+                E)J
+                J)K
+                K)L
+                K)YOU
+                I)SAN
+            """.trimIndent()
+            on("parse, calculate indirect orbits, find path") {
+                val directOrbits = inputString.parseOrbits()
+                it("should find the right number of direct orbits") {
+                    directOrbits.size `should equal` 13
+                }
+                val indirectOrbits = directOrbits.calculateIndirectOrbitsIncludingDirect()
+                it("should find the right number of direct and indirect orbits") {
+                    indirectOrbits.entries.map { it.value.size }.sum() `should equal` 54
+                }
+                it("should find the right number of steps from YOU to SAN") {
+                    findPathSize(indirectOrbits, "YOU", "SAN") - 2 `should equal` 4
+                }
+            }
+        }
+        given("exercise") {
+            val inputString = readResource("day06Input.txt")!!
+            on("parse, calculate indirect orbits, find path") {
+                val directOrbits = inputString.parseOrbits()
+                val indirectOrbits = directOrbits.calculateIndirectOrbitsIncludingDirect()
+                it("should find the right number of steps from YOU to SAN") {
+                    findPathSize(indirectOrbits, "YOU", "SAN") - 2 `should equal` 472
+                }
+            }
+        }
+    }
 })
 
-fun Map<String, String>.calculateIndirectOrbitsIncludingDirect(): Map<String, Set<String>> =
+fun findPathSize(indirectOrbits: Map<String, Set<Pair<String, Int>>>, from: String, to: String): Int {
+    val orbitsFrom = indirectOrbits[from]!!
+    val orbitsTo = indirectOrbits[to]!!
+    val commonObject = (orbitsFrom.map { it.first } intersect orbitsTo.map { it.first }).firstOrNull()
+    if (commonObject == null) throw IllegalArgumentException("No path from $from to $to")
+    return orbitsFrom.find { it.first == commonObject }!!.second + orbitsTo.find { it.first == commonObject }!!.second
+}
+
+fun Map<String, String>.calculateIndirectOrbitsIncludingDirect(): Map<String, Set<Pair<String, Int>>> =
     entries.map { (orbiting, _) ->
-        orbiting to findIndirectOrbitsIncludingDirect(orbiting, this)
+        orbiting to findIndirectOrbitsIncludingDirect(orbiting, 0, this)
 }.toMap()
 
-fun findIndirectOrbitsIncludingDirect(orbiting: String, directOrbits: Map<String, String>): Set<String> {
+fun findIndirectOrbitsIncludingDirect(orbiting: String, size: Int, directOrbits: Map<String, String>): Set<Pair<String, Int>> {
     val directOrbit = directOrbits[orbiting]
     return if (directOrbit == null) emptySet()
-    else setOf(directOrbit) + findIndirectOrbitsIncludingDirect(directOrbit, directOrbits)
+    else setOf(directOrbit to size + 1) + findIndirectOrbitsIncludingDirect(directOrbit, size + 1, directOrbits)
 }
 
 fun String.parseOrbits(): Map<String, String> = split("\n").map {
