@@ -1,3 +1,10 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
+
 /*
 
 --- Day 7: Amplification Circuit ---
@@ -56,16 +63,83 @@ another sequence might have sent a higher signal to the thrusters.
 Here are some example programs:
 
 Max thruster signal 43210 (from phase setting sequence 4,3,2,1,0):
-
 3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0
+
 Max thruster signal 54321 (from phase setting sequence 0,1,2,3,4):
-
 3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0
-Max thruster signal 65210 (from phase setting sequence 1,0,4,3,2):
 
+Max thruster signal 65210 (from phase setting sequence 1,0,4,3,2):
 3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0
 
 Try every combination of phase settings on the amplifiers.
 What is the highest signal that can be sent to the thrusters?
 
  */
+
+class Day07Spec : Spek({
+
+    describe("part 1") {
+        describe("calculate max thruster signal") {
+            val testData = arrayOf(
+                data("3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0", listOf(4,3,2,1,0), 43210),
+                data("3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0",
+                    listOf(0,1,2,3,4), 54321),
+                data("3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0",
+                    listOf(1,0,4,3,2), 65210)
+            )
+            onData("intCodes %s phase setting %s", with = *testData) { intCodes, phaseSettings, expected ->
+                it("should calculate $expected") {
+                    runNestedIntCodes(intCodes, phaseSettings) `should equal` expected
+                }
+            }
+        }
+        describe("find best phase settings") {
+            val intCodesString = "3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0"
+            val intCodes = parseIntCodes(intCodesString)
+            it("should find best settings") {
+                val result = findBestPhaseSettings(intCodes)
+                result `should equal` (listOf(1,0,4,3,2) to 65210)
+            }
+        }
+        describe("exercise") {
+            val intCodesString = readResource("day07Input.txt")!!
+            val intCodes = parseIntCodes(intCodesString)
+            it("should find best settings") {
+                val result = findBestPhaseSettings(intCodes)
+                result `should equal` (listOf(2, 1, 4, 3, 0) to 298586)
+            }
+        }
+    }
+})
+
+fun findBestPhaseSettings(intCodes: List<Int>): Pair<List<Int>, Int> =
+    listOf(0, 1, 2, 3, 4).permute().map { phaseSettings ->
+        val output = runNestedIntCodes(intCodes, phaseSettings)
+        phaseSettings to output
+    }.maxBy { it.second }!!
+
+fun <E> List<E>.permute():List<List<E>>{
+    if (size == 1) return listOf(this)
+    val perms = mutableListOf<List<E>>()
+    val sub = get(0)
+    for(perm in drop(1).permute())
+        for (i in 0..perm.size){
+            val newPerm=perm.toMutableList()
+            newPerm.add(i, sub)
+            perms.add(newPerm)
+        }
+    return perms
+}
+
+fun runNestedIntCodes(intCodesString: String, phaseSettings: List<Int>): Int =
+    runNestedIntCodes(parseIntCodes(intCodesString), phaseSettings)
+
+fun runNestedIntCodes(intCodes: List<Int>, phaseSettings: List<Int>): Int {
+    var input = 0
+    phaseSettings.forEach { phaseSetting ->
+        val inputList = listOf(phaseSetting, input)
+        val outputList = intCodes.executeExtendedIntCodes(inputList)
+        input = outputList.first() // output is input for next step
+    }
+    return input
+}
