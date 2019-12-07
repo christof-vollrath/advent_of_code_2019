@@ -5,8 +5,9 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
+import kotlin.math.abs
+import kotlin.math.max
 import org.jetbrains.spek.data_driven.on as onData
-import java.lang.Math.*
 
 /*
 --- Day 3: Crossed Wires ---
@@ -137,7 +138,7 @@ class WireGrid {
         if (coord.y < minY) minY = coord.y
         charMap[coord] = value
     }
-    operator fun get(coord2: Coord2) = charMap.get(coord2)
+    operator fun get(coord2: Coord2) = charMap[coord2]
 
     fun print() {
         for (y in minY .. maxY) {
@@ -162,9 +163,11 @@ fun List<String>.fallowWire(grid: WireGrid, iteration: Int): Set<Pair<Coord2, In
                 distance++
                 val existingGridPoint = grid[pos]
                 if (existingGridPoint == null) {
-                    val gridChar = if (i == steps) '+'
-                    else if (direction in setOf(WireDirection.Up, WireDirection.Down)) '|'
-                    else '-'
+                    val gridChar = when {
+                        i == steps -> '+'
+                        direction in setOf(WireDirection.Up, WireDirection.Down) -> '|'
+                        else -> '-'
+                    }
                     val newGridPoint = GridPoint(gridChar, iteration)
                     newGridPoint.setDistance(iteration, distance)
                     grid[pos] = newGridPoint
