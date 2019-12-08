@@ -168,16 +168,3 @@ fun List<Char>.toString(width: Int): String = map {
 
 fun String.splitLayers(width: Int, height: Int) = toList().chunked(width * height)
 
-fun <T> List<List<T>>.transpose(): List<List<T>> { // TODO move to Common
-    val result = mutableListOf<List<T>>()
-    val n = get(0).size
-    for (i in  0 until n) {
-        val col = mutableListOf<T>()
-        for (row in this) {
-            col.add(row[i])
-        }
-        result.add(col)
-    }
-    return result
-}
-

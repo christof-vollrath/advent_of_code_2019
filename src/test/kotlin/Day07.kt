@@ -172,19 +172,6 @@ fun findBestPhaseSettings(intCodes: List<Int>): Pair<List<Int>, Int> =
         phaseSettings to output
     }.maxBy { it.second }!!
 
-fun <E> List<E>.permute():List<List<E>> { //TODO move to Common
-    if (size == 1) return listOf(this)
-    val perms = mutableListOf<List<E>>()
-    val sub = get(0)
-    for(perm in drop(1).permute())
-        for (i in 0..perm.size){
-            val newPerm=perm.toMutableList()
-            newPerm.add(i, sub)
-            perms.add(newPerm)
-        }
-    return perms
-}
-
 fun runNestedIntCodes(intCodesString: String, phaseSettings: List<Int>): Int =
     runNestedIntCodes(parseIntCodes(intCodesString), phaseSettings)
 
