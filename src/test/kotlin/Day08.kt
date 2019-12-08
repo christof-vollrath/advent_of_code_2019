@@ -44,6 +44,45 @@ To make sure the image wasn't corrupted during transmission,
 the Elves would like you to find the layer that contains the fewest 0 digits.
 On that layer, what is the number of 1 digits multiplied by the number of 2 digits?
 
+--- Part Two ---
+
+Now you're ready to decode the image.
+The image is rendered by stacking the layers and aligning the pixels with the same positions in each layer.
+The digits indicate the color of the corresponding pixel: 0 is black, 1 is white, and 2 is transparent.
+
+The layers are rendered with the first layer in front and the last layer in back.
+So, if a given position has a transparent pixel in the first and second layers, a black pixel in the third layer,
+and a white pixel in the fourth layer, the final image would have a black pixel at that position.
+
+For example, given an image 2 pixels wide and 2 pixels tall,
+the image data 0222112222120000 corresponds to the following image layers:
+
+Layer 1: 02
+         22
+
+Layer 2: 11
+         22
+
+Layer 3: 22
+         12
+
+Layer 4: 00
+         00
+
+Then, the full image can be found by determining the top visible pixel in each position:
+
+The top-left pixel is black because the top layer is 0.
+The top-right pixel is white because the top layer is 2 (transparent), but the second layer is 1.
+The bottom-left pixel is white because the top two layers are 2, but the third layer is 1.
+The bottom-right pixel is black because the only visible pixel in that position is 0 (from layer 4).
+
+So, the final image looks like this:
+
+01
+10
+
+What message is produced after decoding your image?
+
  */
 
 class Day08Spec : Spek({
@@ -76,6 +115,34 @@ class Day08Spec : Spek({
             }
         }
     }
+    describe("part 2") {
+        given("example") {
+            val inputString = "0222112222120000"
+            val layers = inputString.splitLayers(width = 2, height = 2)
+            it("should have found two layers") {
+                layers.size `should equal` 4
+            }
+            on("overlay layers") {
+                val result = layers.overlayLayers()
+                it("should have the right result") {
+                    result `should equal` listOf('0', '1', '1', '0')
+                }
+                val resultString = result.toString(width = 2)
+                it("should convert correctly to string") {
+                    resultString `should equal` " O\nO "
+                }
+            }
+        }
+        given("exercise") {
+            val inputString = readResource("day08Input.txt")!!
+            val layers = inputString.splitLayers(width = 25, height = 6)
+            on("overlay layers") {
+                val result = layers.overlayLayers()
+                val resultString = result.toString(width = 25)
+                println(resultString)
+            }
+        }
+    }
 })
 
 fun List<List<Char>>.multiply12FewestDigits0(): Int {
@@ -85,4 +152,32 @@ fun List<List<Char>>.multiply12FewestDigits0(): Int {
     return layer.count { it == '1'} * layer.count { it == '2'}
 }
 
+fun List<List<Char>>.overlayLayers(): List<Char> =
+    transpose().map {
+        it.find { it != '2' }!!
+    }
+
+fun List<Char>.toString(width: Int): String = map {
+        when(it) {
+            '1' -> 'O'
+            else -> ' '
+        }
+    }.chunked(width).map {
+        it.joinToString("")
+    }.joinToString("\n")
+
 fun String.splitLayers(width: Int, height: Int) = toList().chunked(width * height)
+
+fun <T> List<List<T>>.transpose(): List<List<T>> { // TODO move to Common
+    val result = mutableListOf<List<T>>()
+    val n = get(0).size
+    for (i in  0 until n) {
+        val col = mutableListOf<T>()
+        for (row in this) {
+            col.add(row[i])
+        }
+        result.add(col)
+    }
+    return result
+}
+
