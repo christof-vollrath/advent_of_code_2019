@@ -1,3 +1,4 @@
+import kotlinx.coroutines.channels.Channel
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -217,6 +218,65 @@ fun List<Int>.executeExtendedIntCodes(input: List<Int>): List<Int> {
                 currentIndex += 4
             }
             99 -> return outputMutable
+            else -> throw IllegalArgumentException("currentIndex=$currentIndex command=$command")
+        }
+    }
+}
+
+suspend fun List<Int>.executeExtendedIntCodesAsync(inputChannel: Channel<Int>, outputChannel: Channel<Int>) { // TODO merge ansyn with sync version
+    val currentState = toMutableList()
+    var currentIndex = 0
+    while(true) {
+        val commandWithParameterModes = currentState[currentIndex]
+        val (command, parameterModes) = commandWithParameterModes.toCommand()
+        println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
+        when(command) {
+            1 -> { // Add
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
+                currentState[indexes[2]] = currentState[indexes[0]] + currentState[indexes[1]]
+                currentIndex += 4
+            }
+            2 -> { // Multiply
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
+                currentState[indexes[2]] = currentState[indexes[0]] * currentState[indexes[1]]
+                currentIndex += 4
+            }
+            3 -> { // Input
+                val inputInt = inputChannel.receive()
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
+                currentState[indexes[0]] = inputInt
+                currentIndex += 2
+            }
+            4 -> { // Output
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
+                outputChannel.send(indexes[0])
+                currentIndex += 2
+            }
+            5 -> { // Jump if true
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..2)
+                if (currentState[indexes[0]] != 0)
+                    currentIndex = currentState[indexes[1]]
+                else
+                    currentIndex += 3
+            }
+            6 -> { // Jump if false
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..2)
+                if (currentState[indexes[0]] == 0)
+                    currentIndex = currentState[indexes[1]]
+                else
+                    currentIndex += 3
+            }
+            7 -> { // Less than
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
+                currentState[indexes[2]] = if (currentState[indexes[0]] < currentState[indexes[1]]) 1 else 0
+                currentIndex += 4
+            }
+            8 -> { // Equals
+                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
+                currentState[indexes[2]] = if (currentState[indexes[0]] == currentState[indexes[1]]) 1 else 0
+                currentIndex += 4
+            }
+            99 -> return
             else -> throw IllegalArgumentException("currentIndex=$currentIndex command=$command")
         }
     }
