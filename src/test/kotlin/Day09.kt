@@ -4,6 +4,8 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
 import java.lang.IllegalArgumentException
 
 /*
@@ -63,88 +65,155 @@ Once your Intcode computer is fully functional, the BOOST program should report 
 when run in test mode; it should only output a single value, the BOOST keycode. What BOOST keycode does it produce?
  */
 
-fun List<Int>.executeExtendedIntCodes09(input: List<Int>): List<Int> { // Even more intcodes and unlimited memory
-    val currentState = toMutableList()
-    var currentIndex = 0
-    val outputMutable = mutableListOf<Int>()
+fun List<Long>.executeExtendedIntCodes09(input: List<Long>): List<Long> { // Even more intcodes and unlimited memory
+    val currentState = mutableMapOf<Long, Long>() // Use map to emulate virtual infinite memory
+    forEachIndexed { index, value -> currentState[index.toLong()] = value  }
+    var currentIndex = 0L
+    var currentBase = 0L
+    val outputMutable = mutableListOf<Long>()
     val inputMutable = input.toMutableList()
     while(true) {
-        val commandWithParameterModes = currentState[currentIndex]
-        val (command, parameterModes) = commandWithParameterModes.toCommand()
+        val commandWithParameterModes = currentState.getOrDefault(currentIndex, 0L)
+        val (command, parameterModes) = commandWithParameterModes.toCommand09()
+            // Commands are small enough to fit into an int
         println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
         when(command) {
-            1 -> { // Add
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
-                currentState[indexes[2]] = currentState[indexes[0]] + currentState[indexes[1]]
+            1L -> { // Add
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                currentState[indexes[2]] = currentState.getOrDefault(indexes[0], 0L) + currentState.getOrDefault(indexes[1], 0L)
                 currentIndex += 4
             }
-            2 -> { // Multiply
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
-                currentState[indexes[2]] = currentState[indexes[0]] * currentState[indexes[1]]
+            2L -> { // Multiply
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                currentState[indexes[2]] = currentState.getOrDefault(indexes[0], 0L) * currentState.getOrDefault(indexes[1], 0L)
                 currentIndex += 4
             }
-            3 -> { // Input
+            3L -> { // Input
                 val inputInt = inputMutable.first()
                 inputMutable.removeAt(0)
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
                 currentState[indexes[0]] = inputInt
                 currentIndex += 2
             }
-            4 -> { // Input
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
-                val outputInt = currentState[indexes[0]]
+            4L -> { // Ouput
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
+                val outputInt = currentState.getOrDefault(indexes[0], 0L)
                 outputMutable += outputInt
                 currentIndex += 2
             }
-            5 -> { // Jump if true
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..2)
-                if (currentState[indexes[0]] != 0)
-                    currentIndex = currentState[indexes[1]]
+            5L -> { // Jump if true
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..2, currentBase)
+                if (currentState.getOrDefault(indexes[0], 0L) != 0L)
+                    currentIndex = currentState.getOrDefault(indexes[1], 0L)
                 else
                     currentIndex += 3
             }
-            6 -> { // Jump if false
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..2)
-                if (currentState[indexes[0]] == 0)
-                    currentIndex = currentState[indexes[1]]
+            6L -> { // Jump if false
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..2, currentBase)
+                if (currentState.getOrDefault(indexes[0], 0L) == 0L)
+                    currentIndex = currentState.getOrDefault(indexes[1], 0L)
                 else
                     currentIndex += 3
             }
-            7 -> { // Less than
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
-                currentState[indexes[2]] = if (currentState[indexes[0]] < currentState[indexes[1]]) 1 else 0
+            7L -> { // Less than
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                currentState[indexes[2]] = if (currentState.getOrDefault(indexes[0], 0L) < currentState.getOrDefault(indexes[1], 0L)) 1L else 0L
                 currentIndex += 4
             }
-            8 -> { // Equals
-                val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
-                currentState[indexes[2]] = if (currentState[indexes[0]] == currentState[indexes[1]]) 1 else 0
+            8L -> { // Equals
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                currentState[indexes[2]] = if (currentState.getOrDefault(indexes[0], 0L) == currentState.getOrDefault(indexes[1], 0L)) 1L else 0L
                 currentIndex += 4
             }
-            99 -> return outputMutable
+            9L -> { // Add relative base
+                val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
+                val incr = currentState.getOrDefault(indexes[0], 0L)
+                currentBase += incr
+                currentIndex += 2
+            }
+            99L -> return outputMutable
             else -> throw IllegalArgumentException("currentIndex=$currentIndex command=$command")
         }
     }
 }
 
+enum class ParameterMode { IMMEDIATE, POSITION, RELATIVE }
+
+fun Long.toCommand09(): Pair<Long, MutableList<ParameterMode>> {
+    val command = this % 100
+    val commandInt = this
+    val parameterModes = sequence {
+        listOf(10_000, 1000, 100).fold(commandInt) { interim, current ->
+            val parameterMode = when (val parameterModeId = interim / current) {
+                0L -> ParameterMode.POSITION
+                1L -> ParameterMode.IMMEDIATE
+                2L -> ParameterMode.RELATIVE
+                else -> throw IllegalArgumentException("Illegal parameter mode = $parameterModeId")
+            }
+            yield(parameterMode)
+            interim % current
+        }
+    }.toMutableList()
+    parameterModes.reverse()
+    return command to parameterModes
+}
+
+fun getParameterIndexes09(currentIndex: Long, parameterModes: List<ParameterMode>, currentState: Map<Long, Long>, range: IntRange, currentBase: Long) =
+    range.map { offset ->
+        val index = currentIndex + offset
+        when(parameterModes[offset - 1] ) {
+            ParameterMode.IMMEDIATE -> index
+            ParameterMode.POSITION -> currentState.getOrDefault(index, 0L)
+            ParameterMode.RELATIVE -> currentBase + currentState.getOrDefault(index, 0L)
+    }
+}
+fun parseIntCodes09(inputString: String): List<Long> = inputString.split(",").map { it.trim().toLong() }
+
 class Day09Spec : Spek({
 
     describe("part 1") {
-        given("exercise input from day 5 should still work") {
+        given("input from day 5 should still work with extended int codes interpreter") {
             val intCodesString = readResource("day05Input.txt")!!
             on("parse and execute") {
-                val intCodes = parseIntCodes(intCodesString)
-                val input = listOf(1)
+                val intCodes = parseIntCodes09(intCodesString)
+                val input = listOf(1L)
                 val result = intCodes.executeExtendedIntCodes09(input)
                 println(result)
                 it("should have the right result") {
                     result.dropLast(1).forEach {
-                        it `should equal` 0
+                        it `should equal` 0L
                     }
                 }
                 it("should have the right diagnostic code") {
                     val diagnosticCode = result.last()
-                    diagnosticCode `should equal` 13294380
+                    diagnosticCode `should equal` 13294380L
                 }
+            }
+        }
+        describe("examples") {
+            val testData = arrayOf(
+                data("109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99", listOf<Long>(), listOf(109L, 1L, 204L, -1L, 1001L, 100L, 1L, 100L, 1008L, 100L, 16L, 101L, 1006L, 101L, 0L, 99L)),
+                data("1102,34915192,34915192,7,4,7,99,0", listOf<Long>(), listOf(1219070632396864L)),
+                data("104,1125899906842624,99", listOf<Long>(), listOf(1125899906842624L))
+            )
+            onData("intCodes %s input %s", with = *testData) { intCodesString, input, expected ->
+                it("should calculate $expected") {
+                    val intCodes = parseIntCodes09(intCodesString)
+                    val result = intCodes.executeExtendedIntCodes09(input)
+                    result `should equal` expected
+                }
+            }
+        }
+        describe("exercise") {
+            val inputString = readResource("day09Input.txt")!!
+            val intCodes = parseIntCodes09(inputString)
+            val input = listOf(1L)
+            val result = intCodes.executeExtendedIntCodes09(input)
+            it("should return only one value") {
+                result.size `should equal` 1
+            }
+            it("should have the right value") {
+                result[0] `should equal` 2399197539L
             }
         }
     }
