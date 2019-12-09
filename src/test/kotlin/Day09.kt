@@ -63,6 +63,20 @@ that seem to be functioning incorrectly, and finally output a BOOST keycode.
 
 Once your Intcode computer is fully functional, the BOOST program should report no malfunctioning opcodes
 when run in test mode; it should only output a single value, the BOOST keycode. What BOOST keycode does it produce?
+
+--- Part Two ---
+
+You now have a complete Intcode computer.
+
+Finally, you can lock on to the Ceres distress signal! You just need to boost your sensors using the BOOST program.
+
+The program runs in sensor boost mode by providing the input instruction the value 2.
+Once run, it will boost the sensors automatically,
+but it might take a few seconds to complete the operation on slower hardware.
+In sensor boost mode, the program will output a single value: the coordinates of the distress signal.
+
+Run the BOOST program in sensor boost mode. What are the coordinates of the distress signal?
+
  */
 
 fun List<Long>.executeExtendedIntCodes09(input: List<Long>): List<Long> { // Even more intcodes and unlimited memory
@@ -214,6 +228,20 @@ class Day09Spec : Spek({
             }
             it("should have the right value") {
                 result[0] `should equal` 2399197539L
+            }
+        }
+    }
+    describe("part 2") {
+        describe("exercise input 2") {
+            val inputString = readResource("day09Input.txt")!!
+            val intCodes = parseIntCodes09(inputString)
+            val input = listOf(2L)
+            val result = intCodes.executeExtendedIntCodes09(input)
+            it("should return only one value") {
+                result.size `should equal` 1
+            }
+            it("should have the right value") {
+                result[0] `should equal` 35106L
             }
         }
     }
