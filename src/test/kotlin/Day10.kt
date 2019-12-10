@@ -261,7 +261,7 @@ fun Collection<Asteroid>.sortedByDistanceTo(asteroid: Asteroid): List<Asteroid> 
 //    visible(from).sortedBy { atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }
 fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> {
 //val h = visible(from).map { it to atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }.sortedBy { it.second }
-    // see https://www.mathsisfun.com/polar-cartesian-coordinates.html problems with quadrants 
+    // see https://www.mathsisfun.com/polar-cartesian-coordinates.html problems with quadrants
     val h = visible(from).map { it to (it.y - from.y).toDouble() / (it.x - from.x).toDouble() }.sortedBy { it.second }
 h.forEach{ println("x=${it.first.x} y=${it.first.y} t=${it.second}") }
     return h.map{it.first}
