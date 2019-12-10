@@ -1,3 +1,4 @@
+import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -7,6 +8,7 @@ import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
 import org.jetbrains.spek.data_driven.on as onData
 import kotlin.math.abs
+import kotlin.math.atan
 
 /*
 --- Day 10: Monitoring Station ---
@@ -255,6 +257,9 @@ fun Set<Asteroid>.hidden(start: Asteroid, behind: Asteroid): Set<Asteroid> {
 
 fun Collection<Asteroid>.sortedByDistanceTo(asteroid: Asteroid): List<Asteroid> = sortedBy { it manhattanDistance asteroid }
 
+fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> =
+    visible(from).sortedBy { atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }
+
 fun parseAsteoridMap(asteroidMapString: String): Set<Asteroid> =
     asteroidMapString.split("\n").mapIndexed { y, row ->
         row.mapIndexedNotNull() { x, cell->
@@ -392,5 +397,78 @@ class Day10Spec : Spek({
             best `should equal` (Asteroid(x=23, y=19) to 278)
         }
     }
+    describe("part 2") {
+        describe("first example") {
+            val asteroidMapString = """
+                .#....#####...#..
+                ##...##.#####..##
+                ##...#...#.#####.
+                ..#.....#...###..
+                ..#.#.....#....## 
+            """.trimIndent()
+            val asteroids = parseAsteoridMap(asteroidMapString)
+            val visible = asteroids.visibleClockwise(from = Asteroid(8, 3))
+            println(visible)
+
+            it("should have found the first 9 asteroids to destroy") {
+                visible.take(9) `should equal` listOf(
+                    Asteroid(8, 1), Asteroid(9, 0), Asteroid(9, 1), Asteroid(10, 0),
+                    Asteroid(9, 2), Asteroid(11, 1), Asteroid(12, 1), Asteroid(11, 2),
+                    Asteroid(15, 1)
+                )
+            }
+            it("should have found the circles to destroy all asteriods") {
+                val circles = asteroids.getCircles()
+                circles.map { it.size } `should equal` listOf(30, 5, 1)
+            }
+            describe("should select the asteroid destroyed as the n-th") {
+                val testData = arrayOf(
+                    data(1, Asteroid(8, 1)),
+                    data(30, Asteroid(7, 0)),
+                    data(31, Asteroid(8, 0)),
+                    data(36, Asteroid(14, 3))
+                )
+                onData("nr %s ", with = *testData) { nr, expected ->
+                    it("should calculate $expected") {
+                        val circles = asteroids.getCircles()
+                        val result = circles.getAsteroid(nr - 1)
+                        result `should equal` expected
+                    }
+                }
+            }
+        }
+        describe("exercise") {
+            val asteroidMapString = readResource("day10Input.txt")!!
+            val asteroids = parseAsteoridMap(asteroidMapString)
+            val circles = asteroids.getCircles()
+            val result = circles.getAsteroid(200 - 1)
+            result.x * 100 + result.y `should be greater than` 406 // wrong results
+            result.x * 100 + result.y `should be greater than` 708
+        }
+    }
 })
+
+private fun List<List<Asteroid>>.getAsteroid(nr: Int): Asteroid {
+    var currOffset = 0
+    var i = 0
+    while(true) {
+        val currentAsteroids = get(i)
+        if (currentAsteroids.size <= nr - currOffset) currOffset += currentAsteroids.size
+        else return currentAsteroids[nr - currOffset]
+        i++
+    }
+}
+
+fun Set<Asteroid>.getCircles(): List<List<Asteroid>> {
+    val visible = countVisible()
+    val laserPosition = visible.maxBy { it.second }!!.first
+    val current = this.toMutableSet();
+    return sequence {
+        while(current.size > 1) { // Asteroid with laser remains
+            val currentDestroyed = current.visibleClockwise(laserPosition)
+            yield(currentDestroyed)
+            current.removeAll(currentDestroyed)
+        }
+    }.toList()
+}
 
