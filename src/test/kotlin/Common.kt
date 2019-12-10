@@ -26,3 +26,11 @@ fun <E> List<E>.permute():List<List<E>> {
     return perms
 }
 
+
+fun gcd(a: Int, b: Int): Int = // Greatest Common Divisor (Euclid)
+    when {
+        a == 0 -> b
+        b == 0 -> a
+        a > b -> gcd(a-b, b)
+        else -> gcd(a, b-a)
+    }
