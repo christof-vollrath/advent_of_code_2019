@@ -257,9 +257,15 @@ fun Set<Asteroid>.hidden(start: Asteroid, behind: Asteroid): Set<Asteroid> {
 
 fun Collection<Asteroid>.sortedByDistanceTo(asteroid: Asteroid): List<Asteroid> = sortedBy { it manhattanDistance asteroid }
 
-fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> =
-    visible(from).sortedBy { atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }
-
+//fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> =
+//    visible(from).sortedBy { atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }
+fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> {
+//val h = visible(from).map { it to atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }.sortedBy { it.second }
+    // see https://www.mathsisfun.com/polar-cartesian-coordinates.html problems with quadrants 
+    val h = visible(from).map { it to (it.y - from.y).toDouble() / (it.x - from.x).toDouble() }.sortedBy { it.second }
+h.forEach{ println("x=${it.first.x} y=${it.first.y} t=${it.second}") }
+    return h.map{it.first}
+}
 fun parseAsteoridMap(asteroidMapString: String): Set<Asteroid> =
     asteroidMapString.split("\n").mapIndexed { y, row ->
         row.mapIndexedNotNull() { x, cell->
@@ -437,6 +443,52 @@ class Day10Spec : Spek({
                 }
             }
         }
+        describe("longer example") {
+            val asteroidMapString ="""
+                .#..##.###...#######
+                ##.############..##.
+                .#.######.########.#
+                .###.#######.####.#.
+                #####.##.#.##.###.##
+                ..#####..#.#########
+                ####################
+                #.####....###.#.#.##
+                ##.#################
+                #####.##.###..####..
+                ..######..##.#######
+                ####.##.####...##..#
+                .#####..#.######.###
+                ##...#.##########...
+                #.##########.#######
+                .####.#.###.###.#.##
+                ....##.##.###..#####
+                .#.#.###########.###
+                #.#.#.#####.####.###
+                ###.##.####.##.#..##
+                """.trimIndent()
+            val asteroids = parseAsteoridMap(asteroidMapString)
+            val circles = asteroids.getCircles()
+            println(circles)
+            val testData = arrayOf(
+                data(1, Asteroid(11, 12)),
+                data(2, Asteroid(12, 1)),
+                data(3, Asteroid(12, 2)),
+                data(10, Asteroid(12, 8)),
+                data(20, Asteroid(16, 0)),
+                data(50, Asteroid(16, 9)),
+                data(100, Asteroid(10, 16)),
+                data(199, Asteroid(9, 6)),
+                data(200, Asteroid(8, 2)),
+                data(201, Asteroid(10, 9)),
+                data(299, Asteroid(11, 1))
+            )
+            onData("nr %s ", with = *testData) { nr, expected ->
+                it("should calculate $expected") {
+                    val result = circles.getAsteroid(nr - 1)
+                    result `should equal` expected
+                }
+            }
+        }
         describe("exercise") {
             val asteroidMapString = readResource("day10Input.txt")!!
             val asteroids = parseAsteoridMap(asteroidMapString)
@@ -462,6 +514,7 @@ private fun List<List<Asteroid>>.getAsteroid(nr: Int): Asteroid {
 fun Set<Asteroid>.getCircles(): List<List<Asteroid>> {
     val visible = countVisible()
     val laserPosition = visible.maxBy { it.second }!!.first
+    println(laserPosition)
     val current = this.toMutableSet();
     return sequence {
         while(current.size > 1) { // Asteroid with laser remains
