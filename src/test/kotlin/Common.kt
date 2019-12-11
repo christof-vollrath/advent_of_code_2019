@@ -1,3 +1,9 @@
+import java.lang.IllegalArgumentException
+import kotlin.math.PI
+import kotlin.math.atan
+import kotlin.math.pow
+import kotlin.math.sqrt
+
 fun readResource(name: String) = ClassLoader.getSystemClassLoader().getResource(name)?.readText()
 
 fun <T> List<List<T>>.transpose(): List<List<T>> {
@@ -34,3 +40,21 @@ fun gcd(a: Int, b: Int): Int = // Greatest Common Divisor (Euclid)
         a > b -> gcd(a-b, b)
         else -> gcd(a, b-a)
     }
+
+// see https://www.mathsisfun.com/polar-cartesian-coordinates.html
+data class PolarCoordinate(val dist: Double, val angle: Double)
+
+data class CartesianCoordinate(val x: Double, val y: Double) {
+    fun toPolar(): PolarCoordinate {
+        val dist = sqrt(x.pow(2) + y.pow(2))
+        val h = atan(y / x)
+        val angle = when {
+            x >= 0 && y >= 0 -> h // Quadrant I
+            x < 0 && y >= 0 -> h + PI // Quadrant II
+            x < 0 && y < 0 -> h + PI // Quadrant III
+            x >= 0 && y < 0 -> h + PI * 2.0// Quadrant III
+            else -> throw IllegalArgumentException("Unkown quadrant for x=$x y=$y")
+        }
+        return PolarCoordinate(dist, angle)
+    }
+}

@@ -1,3 +1,4 @@
+import junit.framework.Assert.assertEquals
 import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
@@ -6,9 +7,9 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
+import java.lang.IllegalArgumentException
+import kotlin.math.*
 import org.jetbrains.spek.data_driven.on as onData
-import kotlin.math.abs
-import kotlin.math.atan
 
 /*
 --- Day 10: Monitoring Station ---
@@ -260,12 +261,14 @@ fun Collection<Asteroid>.sortedByDistanceTo(asteroid: Asteroid): List<Asteroid> 
 //fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> =
 //    visible(from).sortedBy { atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }
 fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> {
-//val h = visible(from).map { it to atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }.sortedBy { it.second }
-    // see https://www.mathsisfun.com/polar-cartesian-coordinates.html problems with quadrants
-    val h = visible(from).map { it to (it.y - from.y).toDouble() / (it.x - from.x).toDouble() }.sortedBy { it.second }
-h.forEach{ println("x=${it.first.x} y=${it.first.y} t=${it.second}") }
-    return h.map{it.first}
+    val withAngel = visible(from).map {
+        val angel = Coord2(it.x - from.x, it.y - from.y).turnClockwise()
+        it to angel
+    }.sortedBy { it.second }
+    println(withAngel)
+    return withAngel.map { it.first }
 }
+
 fun parseAsteoridMap(asteroidMapString: String): Set<Asteroid> =
     asteroidMapString.split("\n").mapIndexed { y, row ->
         row.mapIndexedNotNull() { x, cell->
@@ -404,6 +407,58 @@ class Day10Spec : Spek({
         }
     }
     describe("part 2") {
+        describe("convert cartesian to polar coordinates") {
+            // see https://www.mathsisfun.com/polar-cartesian-coordinates.html
+            val testData = arrayOf(
+                data(CartesianCoordinate(12.0, 5.0), PolarCoordinate(13.0, 0.39479112)),
+                data(CartesianCoordinate(0.0, 1.0), PolarCoordinate(1.0, PI / 2.0)),
+                data(CartesianCoordinate(1.0, 1.0), PolarCoordinate(sqrt(2.0), PI / 4.0)),
+                data(CartesianCoordinate(1.0, 0.0), PolarCoordinate(1.0, 0.0)),
+                data(CartesianCoordinate(1.0, -1.0), PolarCoordinate(sqrt(2.0), PI * 7.0 / 4.0)),
+                data(CartesianCoordinate(0.0, -1.0), PolarCoordinate(1.0, PI * 3.0 / 2.0)),
+                data(CartesianCoordinate(-1.0, -1.0), PolarCoordinate(sqrt(2.0), PI * 5.0 / 4.0)),
+                data(CartesianCoordinate(-1.0, 0.0), PolarCoordinate(1.0, PI)),
+                data(CartesianCoordinate(-1.0, 1.0), PolarCoordinate(sqrt(2.0), PI * 3.0 / 4.0))
+            )
+            onData("cartesian %s ", with = *testData) { cartesian, expected ->
+                it("should be converted to $expected") {
+                    val polar = cartesian.toPolar()
+                    assertEquals("dist", expected.dist, polar.dist, 0.001)
+                    assertEquals("angle", expected.angle, polar.angle, 0.001)
+                }
+            }
+        }
+        describe("polar coordinates turn anti clockwise and start with the left most position") {
+            val testData = arrayOf(
+                data(CartesianCoordinate(1.0, 0.0), 0.0),
+                data(CartesianCoordinate(0.0, 1.0), PI / 2.0),
+                data(CartesianCoordinate(-1.0, 0.0), PI),
+                data(CartesianCoordinate(0.0, -1.0), PI * 3.0 / 2.0)
+            )
+            onData("coord %s ", with = *testData) { coord, expected ->
+                it("should be turned to $expected") {
+                    assertEquals("turned", expected, coord.toPolar().angle, 0.001)
+                }
+            }
+        }
+        describe("turn clockwise") {
+            val testData = arrayOf(
+                data(Asteroid(0, -2), 0.0),
+                data(Asteroid(2, -2), PI * 1.0 / 4.0),
+                data(Asteroid(5, 0), PI * 2.0 / 4.0),
+                data(Asteroid(10, 10), PI * 3.0 / 4.0),
+                data(Asteroid(0, 10), PI * 4.0 / 4.0),
+                data(Asteroid(-5, 5), PI * 5.0 / 4.0),
+                data(Asteroid(-5, 0), PI * 6.0 / 4.0),
+                data(Asteroid(-3, -3), PI * 7.0 / 4.0)
+            )
+            onData("asteroid %s ", with = *testData) { asteroid, expected ->
+                it("should be turned to $expected") {
+                    val coord = Coord2(asteroid.x, asteroid.y) // Relative to asteroid with laser
+                    assertEquals("turned", expected, coord.turnClockwise(), 0.001)
+                }
+            }
+        }
         describe("first example") {
             val asteroidMapString = """
                 .#....#####...#..
@@ -523,5 +578,10 @@ fun Set<Asteroid>.getCircles(): List<List<Asteroid>> {
             current.removeAll(currentDestroyed)
         }
     }.toList()
+}
+
+fun Coord2.turnClockwise(): Double {
+    val result = - CartesianCoordinate(-this.x.toDouble(), -this.y.toDouble()).toPolar().angle - PI / 2.0
+    return result
 }
 
