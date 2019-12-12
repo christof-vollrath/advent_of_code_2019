@@ -183,13 +183,15 @@ fun List<Int>.executeExtendedIntCodes(input: List<Int>, id: Int = 1): List<Int> 
             3 -> { // Input
                 val inputInt = inputMutable.first()
                 inputMutable.removeAt(0)
+                println("($id) input=$inputInt")
                 val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
                 currentState[indexes[0]] = inputInt
                 currentIndex += 2
             }
-            4 -> { // Input
+            4 -> { // Output
                 val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
                 val outputInt = currentState[indexes[0]]
+                println("($id) output=$outputInt")
                 outputMutable += outputInt
                 currentIndex += 2
             }
@@ -223,7 +225,7 @@ fun List<Int>.executeExtendedIntCodes(input: List<Int>, id: Int = 1): List<Int> 
     }
 }
 
-suspend fun List<Int>.executeExtendedIntCodesAsync(inputChannel: Channel<Int>, outputChannel: Channel<Int>, id: Int = 1) { // TODO merge ansyn with sync version
+suspend fun List<Int>.executeExtendedIntCodesAsync(inputChannel: Channel<Int>, outputChannel: Channel<Int>, id: Int = 1) { // TODO merge asyn with sync version
     val currentState = toMutableList()
     var currentIndex = 0
     while(true) {
@@ -243,13 +245,16 @@ suspend fun List<Int>.executeExtendedIntCodesAsync(inputChannel: Channel<Int>, o
             }
             3 -> { // Input
                 val inputInt = inputChannel.receive()
+                println("($id) input=$inputInt")
                 val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
                 currentState[indexes[0]] = inputInt
                 currentIndex += 2
             }
             4 -> { // Output
                 val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..1)
-                outputChannel.send(indexes[0])
+                val outputInt = currentState[indexes[0]]
+                println("($id) output=$outputInt")
+                outputChannel.send(outputInt)
                 currentIndex += 2
             }
             5 -> { // Jump if true

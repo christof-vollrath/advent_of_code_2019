@@ -176,16 +176,27 @@ class Day07Spec : Spek({
                 val input = listOf(4, 0)
                 on("execute int codes asynchronously") {
                     val result = runBlocking {
-                        val job = launch {
+                        launch {
                             intCodes.executeExtendedIntCodesAsync(inputChannel, outputChannel)
                         }
                         input.forEach { inputChannel.send(it) }
                         outputChannel.receive()
                     }
                     it("should have the right result") {
-                        result `should equal` 15
+                        result `should equal` 4
                     }
                 }
+            }
+        }
+        describe("compare synchronous and asynchronous implementation when having one amplifier in chain") {
+            val intCodesString = "3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0"
+            val intCodes = parseIntCodes(intCodesString)
+            val resultSync = runChainedIntCodes(intCodes, listOf(1))
+            println("sync $resultSync")
+            val resultAsync = runLoopedIntCodes(intCodes, listOf(1), looped = false)
+            println("async $resultAsync")
+            it("should have the same result for sync or async") {
+                resultSync `should equal` resultAsync
             }
         }
         describe("calculate max thruster signal (synchronously)") {
@@ -203,10 +214,21 @@ class Day07Spec : Spek({
             val intCodesString = "3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0"
             val intCodes = parseIntCodes(intCodesString)
             val phaseSettings = listOf(1,0,4,3,2)
-            on("run in a chain") {
+            on("run asynchronous") {
                 val result = runLoopedIntCodes(intCodes, phaseSettings, looped = false)
                 it("should have found the right result") {
                     result `should equal` 65210
+                }
+            }
+        }
+        describe("calculate max thruster signal asynchronously in loop") {
+            val intCodesString = "3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5"
+            val intCodes = parseIntCodes(intCodesString)
+            val phaseSettings = listOf(9,8,7,6,5)
+            on("run asynchronous") {
+                val result = runLoopedIntCodes(intCodes, phaseSettings, looped = true)
+                it("should have found the right result") {
+                    result `should equal` 139629729
                 }
             }
         }
@@ -240,13 +262,22 @@ fun runLoopedIntCodes(intCodes: List<Int>, phaseSettings: List<Int>, looped: Boo
     val outputChannel = connectingChannels.last()
     return runBlocking {
         // Build up chain
-        phaseSettings.forEachIndexed { i, phaseSetting ->
-            val job = launch {
+        val jobs = phaseSettings.mapIndexed { i, phaseSetting ->
+            launch {
                 intCodes.executeExtendedIntCodesAsync(connectingChannels[i], connectingChannels[i + 1], i+1)
             }
         }
         phaseSettings.forEachIndexed { i, phase -> connectingChannels[i].send(phase) }
         inputChannel.send(0) // Start input
-        outputChannel.receive()
+        if (looped) {
+            var output: Int
+            while(true) {
+                // Feed output into input
+                output = outputChannel.receive()
+                if (jobs[0].isCompleted) break // when the first is completed, it will receive anymore, can terminate
+                inputChannel.send(output)
+            }
+            output
+        } else outputChannel.receive()
     }
 }
