@@ -52,7 +52,7 @@ data class CartesianCoordinate(val x: Double, val y: Double) {
             x >= 0 && y >= 0 -> h // Quadrant I
             x < 0 && y >= 0 -> h + PI // Quadrant II
             x < 0 && y < 0 -> h + PI // Quadrant III
-            x >= 0 && y < 0 -> h + PI * 2.0// Quadrant III
+            x >= 0 && y < 0 -> h + PI * 2 // Quadrant IIII
             else -> throw IllegalArgumentException("Unkown quadrant for x=$x y=$y")
         }
         return PolarCoordinate(dist, angle)

@@ -7,7 +7,6 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
-import java.lang.IllegalArgumentException
 import kotlin.math.*
 import org.jetbrains.spek.data_driven.on as onData
 
@@ -258,16 +257,10 @@ fun Set<Asteroid>.hidden(start: Asteroid, behind: Asteroid): Set<Asteroid> {
 
 fun Collection<Asteroid>.sortedByDistanceTo(asteroid: Asteroid): List<Asteroid> = sortedBy { it manhattanDistance asteroid }
 
-//fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> =
-//    visible(from).sortedBy { atan((it.y - from.y).toDouble() / (it.x - from.x).toDouble()) }
-fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> {
-    val withAngel = visible(from).map {
-        val angel = Coord2(it.x - from.x, it.y - from.y).turnClockwise()
-        it to angel
-    }.sortedBy { it.second }
-    println(withAngel)
-    return withAngel.map { it.first }
-}
+fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> =
+    visible(from).sortedBy {
+        Coord2(it.x - from.x, it.y - from.y).calculateAngelWhenTurnedClockwise()
+    }
 
 fun parseAsteoridMap(asteroidMapString: String): Set<Asteroid> =
     asteroidMapString.split("\n").mapIndexed { y, row ->
@@ -276,6 +269,22 @@ fun parseAsteoridMap(asteroidMapString: String): Set<Asteroid> =
             else null
         }
     }.flatten().toSet()
+
+fun Set<Asteroid>.getCircles(): List<List<Asteroid>> {
+    val visible = countVisible()
+    val laserPosition = visible.maxBy { it.second }!!.first
+    val current = this.toMutableSet();
+    return sequence {
+        while(current.size > 1) { // Asteroid with laser remains
+            val currentDestroyed = current.visibleClockwise(laserPosition)
+            yield(currentDestroyed)
+            current.removeAll(currentDestroyed)
+        }
+    }.toList()
+}
+
+fun Coord2.calculateAngelWhenTurnedClockwise(): Double =
+    (CartesianCoordinate(this.x.toDouble(), this.y.toDouble()).toPolar().angle + 0.5 * PI) % (2.0 * PI)
 
 class Day10Spec : Spek({
 
@@ -431,31 +440,36 @@ class Day10Spec : Spek({
         describe("polar coordinates turn anti clockwise and start with the left most position") {
             val testData = arrayOf(
                 data(CartesianCoordinate(1.0, 0.0), 0.0),
-                data(CartesianCoordinate(0.0, 1.0), PI / 2.0),
-                data(CartesianCoordinate(-1.0, 0.0), PI),
-                data(CartesianCoordinate(0.0, -1.0), PI * 3.0 / 2.0)
+                data(CartesianCoordinate(1.0, 1.0), 1.0),
+                data(CartesianCoordinate(0.0, 1.0), 2.0),
+                data(CartesianCoordinate(-1.0, 1.0), 3.0),
+                data(CartesianCoordinate(-1.0, 0.0), 4.0),
+                data(CartesianCoordinate(-1.0, -1.0), 5.0),
+                data(CartesianCoordinate(0.0, -1.0), 6.0),
+                data(CartesianCoordinate(1.0, -1.0), 7.0)
+
             )
             onData("coord %s ", with = *testData) { coord, expected ->
                 it("should be turned to $expected") {
-                    assertEquals("turned", expected, coord.toPolar().angle, 0.001)
+                    assertEquals("turned", expected, coord.toPolar().angle / PI * 4.0, 0.001)
                 }
             }
         }
         describe("turn clockwise") {
             val testData = arrayOf(
                 data(Asteroid(0, -2), 0.0),
-                data(Asteroid(2, -2), PI * 1.0 / 4.0),
-                data(Asteroid(5, 0), PI * 2.0 / 4.0),
-                data(Asteroid(10, 10), PI * 3.0 / 4.0),
-                data(Asteroid(0, 10), PI * 4.0 / 4.0),
-                data(Asteroid(-5, 5), PI * 5.0 / 4.0),
-                data(Asteroid(-5, 0), PI * 6.0 / 4.0),
-                data(Asteroid(-3, -3), PI * 7.0 / 4.0)
+                data(Asteroid(2, -2), 1.0),
+                data(Asteroid(5, 0), 2.0),
+                data(Asteroid(10, 10), 3.0),
+                data(Asteroid(0, 10), 4.0),
+                data(Asteroid(-5, 5), 5.0),
+                data(Asteroid(-5, 0), 6.0),
+                data(Asteroid(-3, -3), 7.0)
             )
             onData("asteroid %s ", with = *testData) { asteroid, expected ->
                 it("should be turned to $expected") {
                     val coord = Coord2(asteroid.x, asteroid.y) // Relative to asteroid with laser
-                    assertEquals("turned", expected, coord.turnClockwise(), 0.001)
+                    assertEquals("turned", expected, coord.calculateAngelWhenTurnedClockwise() / PI * 4.0, 0.001)
                 }
             }
         }
@@ -469,7 +483,6 @@ class Day10Spec : Spek({
             """.trimIndent()
             val asteroids = parseAsteoridMap(asteroidMapString)
             val visible = asteroids.visibleClockwise(from = Asteroid(8, 3))
-            println(visible)
 
             it("should have found the first 9 asteroids to destroy") {
                 visible.take(9) `should equal` listOf(
@@ -523,7 +536,6 @@ class Day10Spec : Spek({
                 """.trimIndent()
             val asteroids = parseAsteoridMap(asteroidMapString)
             val circles = asteroids.getCircles()
-            println(circles)
             val testData = arrayOf(
                 data(1, Asteroid(11, 12)),
                 data(2, Asteroid(12, 1)),
@@ -549,13 +561,12 @@ class Day10Spec : Spek({
             val asteroids = parseAsteoridMap(asteroidMapString)
             val circles = asteroids.getCircles()
             val result = circles.getAsteroid(200 - 1)
-            result.x * 100 + result.y `should be greater than` 406 // wrong results
-            result.x * 100 + result.y `should be greater than` 708
+            result.x * 100 + result.y `should equal` 1417
         }
     }
 })
 
-private fun List<List<Asteroid>>.getAsteroid(nr: Int): Asteroid {
+fun List<List<Asteroid>>.getAsteroid(nr: Int): Asteroid {
     var currOffset = 0
     var i = 0
     while(true) {
@@ -564,24 +575,5 @@ private fun List<List<Asteroid>>.getAsteroid(nr: Int): Asteroid {
         else return currentAsteroids[nr - currOffset]
         i++
     }
-}
-
-fun Set<Asteroid>.getCircles(): List<List<Asteroid>> {
-    val visible = countVisible()
-    val laserPosition = visible.maxBy { it.second }!!.first
-    println(laserPosition)
-    val current = this.toMutableSet();
-    return sequence {
-        while(current.size > 1) { // Asteroid with laser remains
-            val currentDestroyed = current.visibleClockwise(laserPosition)
-            yield(currentDestroyed)
-            current.removeAll(currentDestroyed)
-        }
-    }.toList()
-}
-
-fun Coord2.turnClockwise(): Double {
-    val result = - CartesianCoordinate(-this.x.toDouble(), -this.y.toDouble()).toPolar().angle - PI / 2.0
-    return result
 }
 
