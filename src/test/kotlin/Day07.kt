@@ -175,17 +175,27 @@ class Day07Spec : Spek({
                 val outputChannel = Channel<Int>()
                 val input = listOf(4, 0)
                 on("execute int codes asynchronously") {
-                    runBlocking {
+                    val result = runBlocking {
                         val job = launch {
                             intCodes.executeExtendedIntCodesAsync(inputChannel, outputChannel)
                         }
                         input.forEach { inputChannel.send(it) }
-                        val result = outputChannel.receive()
-                        job.join()
-                        it("should have the right result") {
-                            result `should equal` 15
-                        }
+                        outputChannel.receive()
                     }
+                    it("should have the right result") {
+                        result `should equal` 15
+                    }
+                }
+            }
+        }
+        describe("calculate max thruster signal (synchronously)") {
+            val intCodesString = "3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0"
+            val intCodes = parseIntCodes(intCodesString)
+            val phaseSettings = listOf(1,0,4,3,2)
+            on("run in a chain") {
+                val result = runChainedIntCodes(intCodes, phaseSettings)
+                it("should have found the right result") {
+                    result `should equal` 65210
                 }
             }
         }
@@ -200,7 +210,6 @@ class Day07Spec : Spek({
                 }
             }
         }
-
     }
 })
 
@@ -216,34 +225,28 @@ fun runChainedIntCodes(intCodesString: String, phaseSettings: List<Int>): Int =
 
 fun runChainedIntCodes(intCodes: List<Int>, phaseSettings: List<Int>): Int {
     var input = 0
-    phaseSettings.forEach { phaseSetting ->
+    phaseSettings.forEachIndexed() { i, phaseSetting ->
         val inputList = listOf(phaseSetting, input)
-        val outputList = intCodes.executeExtendedIntCodes(inputList)
+        val outputList = intCodes.executeExtendedIntCodes(inputList, i+1)
         input = outputList.first() // output is input for next step
     }
     return input
 }
 
-
 fun runLoopedIntCodes(intCodes: List<Int>, phaseSettings: List<Int>, looped: Boolean): Int {
     val chainSize = phaseSettings.size
-    val connectingChannels = List(chainSize) { Channel<Int>() }
-    val inputChannels = connectingChannels.dropLast(1)
-    val outputChannels = connectingChannels.drop(1)
+    val connectingChannels = List(chainSize + 1) { Channel<Int>() }
     val inputChannel = connectingChannels.first()
     val outputChannel = connectingChannels.last()
-    var result: Int? = null
-    runBlocking {
+    return runBlocking {
         // Build up chain
         phaseSettings.forEachIndexed { i, phaseSetting ->
             val job = launch {
-                intCodes.executeExtendedIntCodesAsync(inputChannels[i], outputChannels[i]) // Send phase to each input
-                phaseSettings.forEachIndexed { i, phase -> inputChannels[i].send(phase) }
-                inputChannel.send(0) // Start input
+                intCodes.executeExtendedIntCodesAsync(connectingChannels[i], connectingChannels[i + 1], i+1)
             }
-            result = outputChannel.receive()
-            job.join()
         }
+        phaseSettings.forEachIndexed { i, phase -> connectingChannels[i].send(phase) }
+        inputChannel.send(0) // Start input
+        outputChannel.receive()
     }
-    return result!!
 }

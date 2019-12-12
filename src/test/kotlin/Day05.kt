@@ -160,7 +160,7 @@ What is the diagnostic code for system ID 5?
 
  */
 
-fun List<Int>.executeExtendedIntCodes(input: List<Int>): List<Int> {
+fun List<Int>.executeExtendedIntCodes(input: List<Int>, id: Int = 1): List<Int> {
     val currentState = toMutableList()
     var currentIndex = 0
     val outputMutable = mutableListOf<Int>()
@@ -168,7 +168,7 @@ fun List<Int>.executeExtendedIntCodes(input: List<Int>): List<Int> {
     while(true) {
         val commandWithParameterModes = currentState[currentIndex]
         val (command, parameterModes) = commandWithParameterModes.toCommand()
-        println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
+        println("($id) curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
         when(command) {
             1 -> { // Add
                 val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
@@ -223,13 +223,13 @@ fun List<Int>.executeExtendedIntCodes(input: List<Int>): List<Int> {
     }
 }
 
-suspend fun List<Int>.executeExtendedIntCodesAsync(inputChannel: Channel<Int>, outputChannel: Channel<Int>) { // TODO merge ansyn with sync version
+suspend fun List<Int>.executeExtendedIntCodesAsync(inputChannel: Channel<Int>, outputChannel: Channel<Int>, id: Int = 1) { // TODO merge ansyn with sync version
     val currentState = toMutableList()
     var currentIndex = 0
     while(true) {
         val commandWithParameterModes = currentState[currentIndex]
         val (command, parameterModes) = commandWithParameterModes.toCommand()
-        println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
+        println("($id) curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
         when(command) {
             1 -> { // Add
                 val indexes = getParameterIndexes(currentIndex, parameterModes, currentState, 1..3)
