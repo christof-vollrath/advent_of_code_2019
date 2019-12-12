@@ -236,9 +236,9 @@ fun runLoopedIntCodes(intCodes: List<Int>, phaseSettings: List<Int>, looped: Boo
     runBlocking {
         // Build up chain
         phaseSettings.forEachIndexed { i, phaseSetting ->
-            phaseSettings.forEachIndexed { i, phase -> inputChannels[i].send(phase) }
             val job = launch {
                 intCodes.executeExtendedIntCodesAsync(inputChannels[i], outputChannels[i]) // Send phase to each input
+                phaseSettings.forEachIndexed { i, phase -> inputChannels[i].send(phase) }
                 inputChannel.send(0) // Start input
             }
             result = outputChannel.receive()
