@@ -101,90 +101,6 @@ How many panels does it paint at least once?
 
  */
 
-class Day11Spec : Spek({
-
-    describe("part 1") {
-        describe("print paint area with robot") {
-            val area = PaintArea(5, 5)
-            val robot = PaintRobot(5 / 2, 5 / 2)
-            val areaWithRobot = PaintAreaWithRobot(area, robot)
-            it("should paint the inital area with robot") {
-                areaWithRobot.toString() `should equal` """
-                    .....
-                    .....
-                    ..^..
-                    .....
-                    .....
-                """.trimIndent()
-            }
-        }
-        describe("robot moves and paints") {
-            val area = PaintArea(5, 5)
-            val robot = PaintRobot(5 / 2, 5 / 2)
-            val areaWithRobot = PaintAreaWithRobot(area, robot)
-            robot.action(1)
-            robot.action(0)
-            it("should paint the inital area with robot") {
-                areaWithRobot.toString() `should equal` """
-                    .....
-                    .....
-                    .<#..
-                    .....
-                    .....
-                """.trimIndent()
-            }
-        }
-        describe("robot senses, moves and paints") {
-            val area = PaintArea(5, 5)
-            val robot = PaintRobot(5 / 2, 5 / 2)
-            val areaWithRobot = PaintAreaWithRobot(area, robot)
-            it("should sense black") {
-                robot.sense() `should equal` 1
-            }
-            listOf(1,0, 0,0, 1,0, 1,0, 0,1, 1,0, 1,0).forEach { robot.action(it) }
-            it("should paint the inital area with robot") {
-                areaWithRobot.toString() `should equal` """
-                    .....
-                    ..<#.
-                    .XX#.
-                    .##..
-                    .....
-                """.trimIndent()
-            }
-            describe("exercise") {
-                val areaSize = 101
-                val area = PaintArea(areaSize, areaSize)
-                val robot = PaintRobot(areaSize / 2, areaSize / 2)
-                val areaWithRobot = PaintAreaWithRobot(area, robot)
-
-                val intCodesString = readResource("day11Input.txt")!!
-                val intCodes = parseIntCodes09(intCodesString)
-                runBlocking {
-                    val inputChannel = Channel<Long>()
-                    val outputChannel = Channel<Long>()
-                    val computer = launch {
-                        intCodes.executeExtendedIntCodes09Async(inputChannel, outputChannel)
-                    }
-                    while(computer.isActive) {
-                        inputChannel.send(robot.sense().toLong())
-                        val paintAction = outputChannel.receive()
-                        robot.action(paintAction.toInt())
-                        val moveAction = outputChannel.receive()
-                        robot.action(moveAction.toInt())
-                    }
-                }
-                println(areaWithRobot.toString())
-                val paintedSpots = area.area.flatMap { row ->
-                    row.filter { it == 'X' || it == '#'}
-                }
-                it("should have painted the right spots") {
-                    paintedSpots.size `should be greater than` 249
-                }
-            }
-        }
-    }
-})
-
 class PaintAreaWithRobot(val paintArea: PaintArea, val paintRobot: PaintRobot) {
     init {
         paintRobot.paintArea = paintArea
@@ -279,10 +195,12 @@ class PaintRobot(x: Int, y: Int) {
     }
 
     fun sense(): Int =
-        when(paintArea[robotPos]) {
-            '.', 'X' -> 1
-            'o' -> 0
-            else -> throw IllegalStateException("Illegal vale at $robotPos")
+        with(paintArea[robotPos]) {
+            when(this) {
+                '.', 'X' -> 0
+                '#' -> 1
+                else -> throw IllegalStateException("Illegal value $this at $robotPos")
+            }
         }
 }
 
@@ -314,7 +232,6 @@ suspend fun List<Long>.executeExtendedIntCodes09Async(inputChannel: Channel<Long
             }
             3L -> { // Input
                 val inputInt = inputChannel.receive()
-                println("($id) input=$inputInt")
                 val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
                 currentState[indexes[0]] = inputInt
                 currentIndex += 2
@@ -322,7 +239,6 @@ suspend fun List<Long>.executeExtendedIntCodes09Async(inputChannel: Channel<Long
             4L -> { // Ouput
                 val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
                 val outputInt = currentState.getOrDefault(indexes[0], 0L)
-                println("($id) output=$outputInt")
                 outputChannel.send(outputInt)
                 currentIndex += 2
             }
@@ -361,5 +277,89 @@ suspend fun List<Long>.executeExtendedIntCodes09Async(inputChannel: Channel<Long
         }
     }
 }
+
+class Day11Spec : Spek({
+
+    describe("part 1") {
+        describe("print paint area with robot") {
+            val area = PaintArea(5, 5)
+            val robot = PaintRobot(5 / 2, 5 / 2)
+            val areaWithRobot = PaintAreaWithRobot(area, robot)
+            it("should paint the inital area with robot") {
+                areaWithRobot.toString() `should equal` """
+                    .....
+                    .....
+                    ..^..
+                    .....
+                    .....
+                """.trimIndent()
+            }
+        }
+        describe("robot moves and paints") {
+            val area = PaintArea(5, 5)
+            val robot = PaintRobot(5 / 2, 5 / 2)
+            val areaWithRobot = PaintAreaWithRobot(area, robot)
+            robot.action(1)
+            robot.action(0)
+            it("should paint the inital area with robot") {
+                areaWithRobot.toString() `should equal` """
+                    .....
+                    .....
+                    .<#..
+                    .....
+                    .....
+                """.trimIndent()
+            }
+        }
+        describe("robot senses, moves and paints") {
+            val area = PaintArea(5, 5)
+            val robot = PaintRobot(5 / 2, 5 / 2)
+            val areaWithRobot = PaintAreaWithRobot(area, robot)
+            it("should sense black") {
+                robot.sense() `should equal` 1
+            }
+            listOf(1,0, 0,0, 1,0, 1,0, 0,1, 1,0, 1,0).forEach { robot.action(it) }
+            it("should paint the inital area with robot") {
+                areaWithRobot.toString() `should equal` """
+                    .....
+                    ..<#.
+                    .XX#.
+                    .##..
+                    .....
+                """.trimIndent()
+            }
+            describe("exercise") {
+                val areaSize = 151
+                val area = PaintArea(areaSize, areaSize)
+                val robot = PaintRobot(areaSize / 2, areaSize / 2)
+                val areaWithRobot = PaintAreaWithRobot(area, robot)
+
+                val intCodesString = readResource("day11Input.txt")!!
+                val intCodes = parseIntCodes09(intCodesString)
+                runBlocking {
+                    val inputChannel = Channel<Long>()
+                    val outputChannel = Channel<Long>()
+                    val computer = launch {
+                        intCodes.executeExtendedIntCodes09Async(inputChannel, outputChannel)
+                    }
+                    while(computer.isActive) {
+                        inputChannel.send(robot.sense().toLong())
+                        val paintAction = outputChannel.receive()
+                        robot.action(paintAction.toInt())
+                        val moveAction = outputChannel.receive()
+                        robot.action(moveAction.toInt())
+                    }
+                }
+                println(areaWithRobot.toString())
+                val paintedSpots = area.area.flatMap { row ->
+                    row.filter { it == 'X' || it == '#'}
+                }
+                it("should have painted the right spots") {
+                    paintedSpots.size `should equal` 1967
+                }
+            }
+        }
+    }
+})
 
 
