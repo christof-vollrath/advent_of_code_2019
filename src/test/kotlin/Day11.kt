@@ -99,6 +99,20 @@ it also never painted the panel it ended on.)
 Build a new emergency hull painting robot and run the Intcode program on it.
 How many panels does it paint at least once?
 
+--- Part Two ---
+
+You're not sure what it's trying to paint, but it's definitely not a registration identifier.
+The Space Police are getting impatient.
+
+Checking your external ship cameras again, you notice a white panel marked
+"emergency hull painting robot starting panel".
+The rest of the panels are still black, but it looks like the robot was expecting to start on a white panel,
+not a black one.
+
+Based on the Space Law Space Brochure that the Space Police attached to one of your windows,
+a valid registration identifier is always eight capital letters.
+After starting the robot on a single white panel instead, what registration identifier does it paint on your hull?
+
  */
 
 class PaintAreaWithRobot(val paintArea: PaintArea, val paintRobot: PaintRobot) {
@@ -278,6 +292,23 @@ suspend fun List<Long>.executeExtendedIntCodes09Async(inputChannel: Channel<Long
     }
 }
 
+fun runComputerConnectedToRobot(intCodes: List<Long>, robot: PaintRobot) {
+    runBlocking {
+        val inputChannel = Channel<Long>()
+        val outputChannel = Channel<Long>()
+        val computer = launch {
+            intCodes.executeExtendedIntCodes09Async(inputChannel, outputChannel)
+        }
+        while (computer.isActive) {
+            inputChannel.send(robot.sense().toLong())
+            val paintAction = outputChannel.receive()
+            robot.action(paintAction.toInt())
+            val moveAction = outputChannel.receive()
+            robot.action(moveAction.toInt())
+        }
+    }
+}
+
 class Day11Spec : Spek({
 
     describe("part 1") {
@@ -336,20 +367,7 @@ class Day11Spec : Spek({
 
                 val intCodesString = readResource("day11Input.txt")!!
                 val intCodes = parseIntCodes09(intCodesString)
-                runBlocking {
-                    val inputChannel = Channel<Long>()
-                    val outputChannel = Channel<Long>()
-                    val computer = launch {
-                        intCodes.executeExtendedIntCodes09Async(inputChannel, outputChannel)
-                    }
-                    while(computer.isActive) {
-                        inputChannel.send(robot.sense().toLong())
-                        val paintAction = outputChannel.receive()
-                        robot.action(paintAction.toInt())
-                        val moveAction = outputChannel.receive()
-                        robot.action(moveAction.toInt())
-                    }
-                }
+                runComputerConnectedToRobot(intCodes, robot)
                 println(areaWithRobot.toString())
                 val paintedSpots = area.area.flatMap { row ->
                     row.filter { it == 'X' || it == '#'}
@@ -357,6 +375,31 @@ class Day11Spec : Spek({
                 it("should have painted the right spots") {
                     paintedSpots.size `should equal` 1967
                 }
+            }
+        }
+    }
+    describe("part 2") {
+        describe("exercise") {
+            val areaSize = 151
+            val area = PaintArea(areaSize, areaSize)
+            val robot = PaintRobot(areaSize / 2, areaSize / 2)
+            val areaWithRobot = PaintAreaWithRobot(area, robot)
+            area.area[areaSize / 2][areaSize / 2] = '#' // Start robot on a white position
+            val intCodesString = readResource("day11Input.txt")!!
+            val intCodes = parseIntCodes09(intCodesString)
+            runComputerConnectedToRobot(intCodes, robot)
+            println(areaWithRobot.toString().map {
+                when(it) {
+                    '#' -> ' '
+                    '\n' -> '\n'
+                    else -> 'O'
+                } // Improve printing
+            }.joinToString(""))
+            val paintedSpots = area.area.flatMap { row ->
+                row.filter { it == 'X' || it == '#'}
+            }
+            it("should have painted the right spots") {
+                paintedSpots.size `should equal` 249
             }
         }
     }
