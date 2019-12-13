@@ -271,7 +271,7 @@ fun runChainedIntCodes(intCodesString: String, phaseSettings: List<Int>): Int =
 
 fun runChainedIntCodes(intCodes: List<Int>, phaseSettings: List<Int>): Int {
     var input = 0
-    phaseSettings.forEachIndexed() { i, phaseSetting ->
+    phaseSettings.forEachIndexed { i, phaseSetting ->
         val inputList = listOf(phaseSetting, input)
         val outputList = intCodes.executeExtendedIntCodes(inputList, i+1)
         input = outputList.first() // output is input for next step

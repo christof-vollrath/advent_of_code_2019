@@ -1,5 +1,4 @@
 import junit.framework.Assert.assertEquals
-import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -7,7 +6,9 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
 import org.jetbrains.spek.data_driven.data
-import kotlin.math.*
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.sqrt
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -248,7 +249,7 @@ fun Set<Asteroid>.hidden(start: Asteroid, behind: Asteroid): Set<Asteroid> {
     val dy = dy1 / gcd
     var current = Asteroid(behind.x + dx, behind.y + dy)
     return sequence {
-        while (current.x <= maxX && current.x >= minX && current.y <= maxY && current.y >= minY) {
+        while (current.x in minX..maxX && current.y <= maxY && current.y >= minY) {
             if (current in this@hidden && current != behind) yield(current)
             current = Asteroid(current.x + dx, current.y + dy)
         }
@@ -264,7 +265,7 @@ fun Set<Asteroid>.visibleClockwise(from: Asteroid): List<Asteroid> =
 
 fun parseAsteoridMap(asteroidMapString: String): Set<Asteroid> =
     asteroidMapString.split("\n").mapIndexed { y, row ->
-        row.mapIndexedNotNull() { x, cell->
+        row.mapIndexedNotNull { x, cell->
             if (cell == '#') Asteroid(x, y)
             else null
         }
@@ -273,7 +274,7 @@ fun parseAsteoridMap(asteroidMapString: String): Set<Asteroid> =
 fun Set<Asteroid>.getCircles(): List<List<Asteroid>> {
     val visible = countVisible()
     val laserPosition = visible.maxBy { it.second }!!.first
-    val current = this.toMutableSet();
+    val current = this.toMutableSet()
     return sequence {
         while(current.size > 1) { // Asteroid with laser remains
             val currentDestroyed = current.visibleClockwise(laserPosition)

@@ -222,7 +222,7 @@ fun findPathSize(indirectOrbits: Map<String, Set<Pair<String, Int>>>, from: Stri
     val orbitsFrom = indirectOrbits[from]!!
     val orbitsTo = indirectOrbits[to]!!
     val commonObject = (orbitsFrom.map { it.first } intersect orbitsTo.map { it.first }).firstOrNull()
-    if (commonObject == null) throw IllegalArgumentException("No path from $from to $to")
+        ?: throw IllegalArgumentException("No path from $from to $to")
     return orbitsFrom.find { it.first == commonObject }!!.second + orbitsTo.find { it.first == commonObject }!!.second
 }
 

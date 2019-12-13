@@ -1,12 +1,10 @@
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
-import java.lang.IllegalArgumentException
 
 /*
 --- Day 11: Space Police ---
@@ -152,14 +150,14 @@ class PaintRobot(x: Int, y: Int) {
         robotPos = Coord2(x, y)
     }
     fun action(action: Int) {
-        when (robotState) {
+        robotState = when (robotState) {
             RobotState.PAINT -> {
                 paint(action)
-                robotState = RobotState.MOVE
+                RobotState.MOVE
             }
             RobotState.MOVE -> {
                 move(action)
-                robotState = RobotState.PAINT
+                RobotState.PAINT
             }
         }
     }
@@ -347,7 +345,7 @@ class Day11Spec : Spek({
             val robot = PaintRobot(5 / 2, 5 / 2)
             val areaWithRobot = PaintAreaWithRobot(area, robot)
             it("should sense black") {
-                robot.sense() `should equal` 1
+                robot.sense() `should equal` 0
             }
             listOf(1,0, 0,0, 1,0, 1,0, 0,1, 1,0, 1,0).forEach { robot.action(it) }
             it("should paint the inital area with robot") {
