@@ -1,8 +1,5 @@
 import java.lang.IllegalArgumentException
-import kotlin.math.PI
-import kotlin.math.atan
-import kotlin.math.pow
-import kotlin.math.sqrt
+import kotlin.math.*
 
 fun readResource(name: String) = ClassLoader.getSystemClassLoader().getResource(name)?.readText()
 
@@ -33,13 +30,18 @@ fun <E> List<E>.permute():List<List<E>> {
 }
 
 
-fun gcd(a: Int, b: Int): Int = // Greatest Common Divisor (Euclid)
+fun gcd(a: Int, b: Int): Int = // Greatest Common Divisor (Euclid, see: https://en.wikipedia.org/wiki/Greatest_common_divisor)
     when {
         a == 0 -> b
         b == 0 -> a
         a > b -> gcd(a-b, b)
         else -> gcd(a, b-a)
     }
+
+fun lcm(a: Int, b: Int) = abs(a * b) / gcd(a, b) // less common multiple (see: https://en.wikipedia.org/wiki/Least_common_multiple)
+fun lcm(numbers: List<Int>) = numbers.drop(1).fold(numbers[0]) { acc, curr ->
+    lcm(acc, curr)
+}
 
 // see https://www.mathsisfun.com/polar-cartesian-coordinates.html
 data class PolarCoordinate(val dist: Double, val angle: Double)
