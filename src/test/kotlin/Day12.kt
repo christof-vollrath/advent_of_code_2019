@@ -1,9 +1,6 @@
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
-import org.jetbrains.spek.api.dsl.describe
-import org.jetbrains.spek.api.dsl.given
-import org.jetbrains.spek.api.dsl.it
-import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.api.dsl.*
 import kotlin.math.abs
 
 /*
@@ -310,6 +307,39 @@ data class Moon(val pos: MutableList<Int>, val vel: MutableList<Int>) {
     fun kineticEnergy() = vel.map { abs(it) }.sum()
 }
 
+fun findAllLoopsAllMoons(moons: List<Moon>): List<Int> = moons.mapIndexed { moonId, _ ->
+    findAllLoops(moons, moonId)
+}.flatten()
+
+fun findAllLoops(moons: List<Moon>, moonId: Int): List<Int> =
+    moons[moonId].pos.mapIndexed { coordId, coord ->
+        val testMoons = moons.map { it.copy() }
+        val result = findLoop(testMoons, moonId, coordId)
+        println("moon=$moonId coord=$coordId loop=$result")
+        result
+    }
+
+
+fun findLoop(moons: List<Moon>, moonId: Int, coordId: Int): Int {
+    val values = mutableListOf<Int>()
+    val valuesSet = mutableSetOf<Int>()
+    while(true) {
+        val velocity = moons[moonId].pos[coordId]
+        val numberAlreadyFound = valuesSet.contains(velocity)
+        values.add(velocity)
+        valuesSet.add(velocity)
+        if (numberAlreadyFound && values.size % 2 == 0) { // Compare list of already found numbers only when this number already found to speed this up
+            // check for loop
+            val loopSize = values.size / 2
+            val firstHalf = values.take(loopSize)
+            val secondHalf = values.drop(loopSize)
+            if (firstHalf == secondHalf) return loopSize // loop found
+        }
+        moons.applyGravity()
+        moons.applyVelocity()
+    }
+}
+
 class Day12Spec : Spek({
 
     describe("part 1") {
@@ -398,12 +428,18 @@ class Day12Spec : Spek({
                 val a = 4
                 val b = 6
                 val numbers = listOf(4, 6, 15)
-                it("should calculate 30 as the lcm") {
+                it("should calculate the correct lcm") {
                     lcm(numbers) `should equal` 60
                 }
             }
+            given("large numbers") {
+                val numbers = listOf(5898L, 4702L, 2028L, 4702L, 5898L, 4702L, 2028L, 4702L)
+                it("should calculate the correct lcm") {
+                    lcm(numbers) `should equal` 4686774924L
+                }
+            }
         }
-        describe("move one step first gravity then velocity") {
+        describe("find loop") {
             given("four moons") {
                 val startMoons = listOf(
                     Moon(x = -1, y = 0, z = 2),
@@ -429,9 +465,24 @@ class Day12Spec : Spek({
                     loopX `should equal` 6
                 }
                 it("should find all loops") {
-                    val loops = findAllLoops(moons)
+                    val loops = findAllLoopsAllMoons(moons) // Not all moons are connected, therefore every moon has to be checked
                     val shortestLoop = lcm(loops)
                     shortestLoop `should equal` 2772
+                }
+            }
+            given("example with longer loop") {
+                val startMoons = listOf(
+                    Moon(x=-8, y=-10, z=0),
+                    Moon(x=5, y=5, z=10),
+                    Moon(x=2, y=-7, z=3),
+                    Moon(x=9, y=-8, z=-3)
+                )
+                val moons = startMoons.map { it.copy() }
+                it("should find all loops") {
+                    val loops = findAllLoops(moons, 0).map { it.toLong() } // Use long because numbers are getting big
+                    // All moons are connected, only one moon has to be traced
+                    val shortestLoop = lcm(loops)
+                    shortestLoop `should equal` 4686774924L
                 }
             }
         }
@@ -443,12 +494,13 @@ class Day12Spec : Spek({
                     Moon(x= -2, y=-10, z= -4),
                     Moon(x= -7, y= -2, z= 14)
                 )
-                it("should find the loop") {
-                    // solution idea: every moon and every coordinate loops,
-                    // the combination of these loops repeates at the lcm of all loop lengthes
-                    val loops = findAllLoops(moons)
+                xit("should find the loop") {// This takes more than 10 minutes to calculate on a powerful laptop
+                    // solution idea: every coordinate loops independently and all moons are connected and fallow the same loops
+                    // the combination of these coordinate loops repeat at the least common multiple (lcm) of all loop lengths
+                    val loops = findAllLoops(moons, 0).map { it.toLong() } // Use long because numbers are getting big
+                        // All moons are connected, only one moon has to be traced
                     val shortestLoop = lcm(loops)
-                    shortestLoop `should equal` 2772
+                    shortestLoop `should equal` 326365108375488L
                 }
             }
         }
@@ -456,30 +508,3 @@ class Day12Spec : Spek({
     }
 
 })
-
-fun findAllLoops(moons: List<Moon>): List<Int> = moons.mapIndexed { moonId, moon ->
-    moon.pos.mapIndexed { coordId, coord ->
-        val testMoons = moons.map { it.copy() }
-//        findLoop(testMoons, moonId, coordId)
-        println("findLoop testMoons=$testMoons moon=$moonId coord=$coordId")
-        val result = findLoop(testMoons, moonId, coordId)
-        println("moon=$moonId coord=$coordId loop=$result")
-        result
-    }
-}.flatten()
-
-fun findLoop(moons: List<Moon>, moonId: Int, coordId: Int): Int {
-    val values = mutableListOf<Int>()
-    while(true) {
-        values.add(moons[moonId].pos[coordId])
-        if (values.size % 2 == 0) {
-            // check for loop
-            val loopSize = values.size / 2
-            val firstHalf = values.take(loopSize)
-            val secondHalf = values.drop(loopSize)
-            if (firstHalf == secondHalf) return loopSize // loop found
-        }
-        moons.applyGravity()
-        moons.applyVelocity()
-    }
-}

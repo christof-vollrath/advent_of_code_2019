@@ -30,7 +30,7 @@ fun <E> List<E>.permute():List<List<E>> {
 }
 
 
-fun gcd(a: Int, b: Int): Int = // Greatest Common Divisor (Euclid, see: https://en.wikipedia.org/wiki/Greatest_common_divisor)
+tailrec fun gcd(a: Int, b: Int): Int = // Greatest Common Divisor (Euclid, see: https://en.wikipedia.org/wiki/Greatest_common_divisor)
     when {
         a == 0 -> b
         b == 0 -> a
@@ -38,8 +38,21 @@ fun gcd(a: Int, b: Int): Int = // Greatest Common Divisor (Euclid, see: https://
         else -> gcd(a, b-a)
     }
 
+tailrec fun gcd(a: Long, b: Long): Long =
+    when {
+        a == 0L -> b
+        b == 0L -> a
+        a > b -> gcd(a-b, b)
+        else -> gcd(a, b-a)
+    }
+
 fun lcm(a: Int, b: Int) = abs(a * b) / gcd(a, b) // less common multiple (see: https://en.wikipedia.org/wiki/Least_common_multiple)
 fun lcm(numbers: List<Int>) = numbers.drop(1).fold(numbers[0]) { acc, curr ->
+    lcm(acc, curr)
+}
+
+fun lcm(a: Long, b: Long) = abs(a * b) / gcd(a, b)
+fun lcm(numbers: List<Long>) = numbers.drop(1).fold(numbers[0]) { acc, curr ->
     lcm(acc, curr)
 }
 
