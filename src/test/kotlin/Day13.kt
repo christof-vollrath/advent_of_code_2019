@@ -1,3 +1,5 @@
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.runBlocking
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
