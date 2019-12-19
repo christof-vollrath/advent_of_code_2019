@@ -9,7 +9,7 @@ fun main(args: Array<String>) {
     with(JFrame()) {
         title = "Breakout"
         defaultCloseOperation = WindowConstants.EXIT_ON_CLOSE
-        setSize(340, 400)
+        setSize(964, 600)
         isResizable = false
 
         add(BreakoutScreen())
@@ -20,7 +20,18 @@ fun main(args: Array<String>) {
 
 }
 
-private val FONT_NAME = "Arial"
+const val FONT_NAME = "Arial"
+const val BACKGROUND_COLOR = 0x010203
+const val FONT_COLOR = 0xfdcfbf
+const val SCORE_FONT_COLOR = 0xfefef2
+const val CELL_SIZE = 10
+const val CELL_MARGIN = 2
+
+val scoreFont = Font(FONT_NAME, Font.BOLD, 18)
+val boardFont = Font(FONT_NAME, Font.BOLD, 12)
+val scoreFontColor = Color(SCORE_FONT_COLOR)
+val boardFontColor = Color(FONT_COLOR)
+val backgroundColor = Color(BACKGROUND_COLOR)
 
 class BreakoutScreen() : JPanel() {
     init {
@@ -41,11 +52,10 @@ class BreakoutScreen() : JPanel() {
 
     override fun paint(g: Graphics) {
         super.paint(g)
-        g.color = Color(0xcdc1b4)
+        g.color = backgroundColor
         g.fillRect(0, 0, this.size.width, this.size.height)
-        val font = Font(FONT_NAME, Font.BOLD, 18)
-        g.color = Color(0x000000)
-        g.font = font
+        g.color = scoreFontColor
+        g.font = scoreFont
         val fm = getFontMetrics(font)
         val string = "Score: 45"
         val y = -fm.getLineMetrics(string, g).baselineOffsets[2].toInt()
@@ -57,48 +67,25 @@ class BreakoutScreen() : JPanel() {
         }
 
     }
-/*
-    private fun offsetCoors(arg: Int): Int {
-        return arg * (TILES_MARGIN + TILE_SIZE) + TILES_MARGIN
+
+    fun offsetCoors(arg: Int): Int {
+        return arg * (CELL_MARGIN + CELL_SIZE) + CELL_MARGIN
     }
 
-    private fun drawTile(g: Graphics2D, value: Int, x: Int, y: Int) {
+    fun drawCell(g: Graphics2D, value: Int, x: Int, y: Int) {
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
         g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_NORMALIZE)
 
         val xOffset = offsetCoors(x)
-        val yOffset = offsetCoors(y)
-        g.color = settings.getBackgroundColor(value)
-        g.fillRoundRect(xOffset, yOffset, TILE_SIZE, TILE_SIZE, 14, 14)
-        g.color = settings.getForegroundColor(value)
-        val size = if (value < 100) 36 else if (value < 1000) 32 else 24
-        val font = Font(FONT_NAME, Font.BOLD, size)
-        g.font = font
-
+        val yOffset = offsetCoors(y) + 24
+        g.color = boardFontColor
+        g.font = boardFont
         val s = value.toString()
         val fm = getFontMetrics(font)
-
         val w = fm.stringWidth(s)
         val h = -fm.getLineMetrics(s, g).baselineOffsets[2].toInt()
 
-        if (value != 0)
-            g.drawString(s, xOffset + (TILE_SIZE - w) / 2, yOffset + TILE_SIZE - (TILE_SIZE - h) / 2 - 2)
-
-        if (game.hasWon() || game.canMove() == false) {
-            g.color = Color(255, 255, 255, 30)
-            g.fillRect(0, 0, width, height)
-            g.color = Color(78, 139, 202)
-            g.font = Font(FONT_NAME, Font.BOLD, 48)
-            if (game.hasWon()) {
-                g.drawString("You won!", 68, 150)
-            }
-            if (!game.canMove()) {
-                g.drawString("Game over!", 45, 160)
-            }
-        }
-        g.font = Font(FONT_NAME, Font.PLAIN, 18)
+        g.drawString(s, xOffset + (CELL_SIZE - w) / 2, yOffset + CELL_SIZE - (CELL_SIZE - h) / 2 - 2)
     }
-
- */
 }
 
