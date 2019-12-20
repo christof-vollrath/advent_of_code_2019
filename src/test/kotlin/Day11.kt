@@ -230,7 +230,7 @@ suspend fun List<Long>.executeExtendedIntCodes09Async(inputChannel: Channel<Long
         val commandWithParameterModes = currentState.getOrDefault(currentIndex, 0L)
         val (command, parameterModes) = commandWithParameterModes.toCommand09()
         // Commands are small enough to fit into an int
-        //println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
+        println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
         when(command) {
             1L -> { // Add
                 val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)

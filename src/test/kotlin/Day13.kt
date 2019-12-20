@@ -81,9 +81,12 @@ class Day13Spec : Spek({
 })
 
 class GameScreen {
-    val screenWidth = 80
-    val screenHeight = 40
+    val screenWidth = 51
+    val screenHeight = 26
     val screen = MutableList(screenHeight) { MutableList(screenWidth) { ' '} }
+    var score = 0
+    var terminated = false
+
     operator fun set(coord: Coord2, c: Char) {
         screen[coord.y][coord.x] = c
     }
