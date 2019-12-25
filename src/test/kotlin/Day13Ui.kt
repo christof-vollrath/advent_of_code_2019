@@ -16,7 +16,7 @@ val scoreFontColor = Color(0xfefef2)
 val boardFontColor = Color(0xfdcfbf)
 val backgroundColor = Color(0x010203)
 
-fun main(args: Array<String>) {
+fun main() {
     val intCodesString = readResource("day13Input.txt")!!
     val intCodes = parseIntCodes09(intCodesString)
     val patchedIntCodes = listOf(2L) + intCodes.drop(1) // Patch so that no coins must be inserted
@@ -40,13 +40,13 @@ class Game(intCodes: List<Long>) {
 
     fun play() {
         runBlocking {
-            async {
+            launch {
                 println("Executing processor in thread ${Thread.currentThread().name}")
                 processor.execute()
                 terminated = true
                 println("terminated!")
             }
-            async {
+            launch {
                 println("Drawing output in thread ${Thread.currentThread().name}")
                 while(!terminated) {
                     val x = outputChannel.receive().toInt()
