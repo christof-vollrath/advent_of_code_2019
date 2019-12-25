@@ -1,3 +1,4 @@
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.runBlocking
 import org.amshove.kluent.`should equal`
@@ -66,35 +67,45 @@ class Day13Spec : Spek({
             val intCodesString = readResource("day13Input.txt")!!
             val intCodes = parseIntCodes09(intCodesString)
             val screen = GameScreen()
+            val inputChannel = Channel<Long>()
+            val outputChannel = Channel<Long>()
+            val processor = IntCodeProcessor(inputChannel, outputChannel, intCodes)
             on("execute int codes") {
-                val output = intCodes.executeExtendedIntCodes09(emptyList())
-                screen.draw(output)
+                runBlocking {
+                    var terminated = false
+                    async {
+                        processor.execute()
+                        terminated = true
+                    }
+                    async {
+                        while(!terminated) {
+                            val x = outputChannel.receive().toInt()
+                            val y = outputChannel.receive().toInt()
+                            val code = outputChannel.receive().toInt()
+                            screen.draw(Coord2(x, y), code)
+                        }
+                    }
+
+                }
                 println(screen)
                 it("should have found the right number of blocks") {
-                    val nrOfBlocks = screen.screen.flatten().filter { it == 'x'}.count()
+                    val nrOfBlocks = screen.chars.flatten().filter { it == 'x'}.count()
                     nrOfBlocks `should equal` 452
                 }
             }
         }
     }
-    // https://unix.stackexchange.com/questions/88972/how-to-keep-the-terminal-cursor-fixed-at-the-top
 })
 
 class GameScreen {
     val screenWidth = 51
     val screenHeight = 26
-    val screen = MutableList(screenHeight) { MutableList(screenWidth) { ' '} }
-    var score = 0
-    var terminated = false
+    var chars = MutableList(screenHeight) { MutableList(screenWidth) { ' '} }
 
     operator fun set(coord: Coord2, c: Char) {
-        screen[coord.y][coord.x] = c
+        chars[coord.y][coord.x] = c
     }
-    operator fun get(coord: Coord2) = screen[coord.y][coord.x]
-
-    fun draw(outputInstructions: List<Long>) = outputInstructions.chunked(3).forEach { outputInstruction ->
-        draw(Coord2(outputInstruction[0].toInt(), outputInstruction[1].toInt()), outputInstruction[2].toInt())
-    }
+    operator fun get(coord: Coord2) = chars[coord.y][coord.x]
 
     fun draw(coord: Coord2, code: Int) {
         val c = when(code) {
@@ -108,5 +119,94 @@ class GameScreen {
         set(coord, c)
     }
 
-    override fun toString(): String = screen.map { row -> row.joinToString("") }.joinToString("\n")
+    override fun toString(): String = chars.map { row -> row.joinToString("") }.joinToString("\n")
+}
+
+typealias ExecutionHook = (commnd: Long, parameterModes: List<ParameterMode>) -> Boolean
+
+class IntCodeProcessor(val inputChannel: Channel<Long>, val outputChannel: Channel<Long>, intCodes: List<Long>, val id: Int = 1) {
+    var currentIndex = 0L
+    var currentBase = 0L
+    var currentState = mutableMapOf<Long, Long>() // Use map to emulate virtual infinite memory
+    var executionPreHook: ExecutionHook? = null
+    var afterInputHook: ExecutionHook? = null
+
+    init {
+        intCodes.forEachIndexed { index, value -> currentState[index.toLong()] = value  }
+    }
+
+    suspend fun execute() {
+
+        while(true) {
+            val commandWithParameterModes = currentState.getOrDefault(currentIndex, 0L)
+            val (command, parameterModes) = commandWithParameterModes.toCommand09()
+            val currentExecutionPreHook = executionPreHook
+            if (currentExecutionPreHook != null)  {
+                val hookResult = currentExecutionPreHook(command, parameterModes)
+                if (hookResult) continue // Skip execution
+            }
+            //println("curentIndex=$currentIndex commandWithParameterModes=$commandWithParameterModes command=$command")
+            when(command) {
+                1L -> { // Add
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                    currentState[indexes[2]] = currentState.getOrDefault(indexes[0], 0L) + currentState.getOrDefault(indexes[1], 0L)
+                    currentIndex += 4
+                }
+                2L -> { // Multiply
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                    currentState[indexes[2]] = currentState.getOrDefault(indexes[0], 0L) * currentState.getOrDefault(indexes[1], 0L)
+                    currentIndex += 4
+                }
+                3L -> { // Input
+                    val inputInt = inputChannel.receive()
+                    val currentAfterInputHook = afterInputHook
+                    if (currentAfterInputHook != null) {
+                        currentAfterInputHook(command, parameterModes)
+                    }
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
+                    currentState[indexes[0]] = inputInt
+                    currentIndex += 2
+                }
+                4L -> { // Ouput
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
+                    val outputInt = currentState.getOrDefault(indexes[0], 0L)
+                    outputChannel.send(outputInt)
+                    currentIndex += 2
+                }
+                5L -> { // Jump if true
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..2, currentBase)
+                    if (currentState.getOrDefault(indexes[0], 0L) != 0L)
+                        currentIndex = currentState.getOrDefault(indexes[1], 0L)
+                    else
+                        currentIndex += 3
+                }
+                6L -> { // Jump if false
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..2, currentBase)
+                    if (currentState.getOrDefault(indexes[0], 0L) == 0L)
+                        currentIndex = currentState.getOrDefault(indexes[1], 0L)
+                    else
+                        currentIndex += 3
+                }
+                7L -> { // Less than
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                    currentState[indexes[2]] = if (currentState.getOrDefault(indexes[0], 0L) < currentState.getOrDefault(indexes[1], 0L)) 1L else 0L
+                    currentIndex += 4
+                }
+                8L -> { // Equals
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..3, currentBase)
+                    currentState[indexes[2]] = if (currentState.getOrDefault(indexes[0], 0L) == currentState.getOrDefault(indexes[1], 0L)) 1L else 0L
+                    currentIndex += 4
+                }
+                9L -> { // Add relative base
+                    val indexes = getParameterIndexes09(currentIndex, parameterModes, currentState, 1..1, currentBase)
+                    val incr = currentState.getOrDefault(indexes[0], 0L)
+                    currentBase += incr
+                    currentIndex += 2
+                }
+                99L -> return
+                else -> throw IllegalArgumentException("currentIndex=$currentIndex command=$command")
+            }
+        }
+    }
+
 }
