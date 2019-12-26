@@ -39,24 +39,19 @@ class Game(intCodes: List<Long>) {
     var gameStates = mutableListOf<GameState>()
 
     fun play() {
-        runBlocking {
-            launch {
-                println("Executing processor in thread ${Thread.currentThread().name}")
-                processor.execute()
-                terminated = true
-                println("terminated!")
-            }
-            launch {
-                println("Drawing output in thread ${Thread.currentThread().name}")
-                while(!terminated) {
-                    val x = outputChannel.receive().toInt()
-                    val y = outputChannel.receive().toInt()
-                    val code = outputChannel.receive().toInt()
-                    if (x == -1 && y == 0) {
-                        score = code
-                    } else screen.draw(Coord2(x, y), code)
-                    ui.repaint()
-                }
+        GlobalScope.launch {
+            processor.execute()
+            terminated = true
+        }
+        GlobalScope.launch {
+            while(!terminated) {
+                val x = outputChannel.receive().toInt()
+                val y = outputChannel.receive().toInt()
+                val code = outputChannel.receive().toInt()
+                if (x == -1 && y == 0) {
+                    score = code
+                } else screen.draw(Coord2(x, y), code)
+                ui.repaint()
             }
         }
     }
@@ -75,6 +70,10 @@ class Game(intCodes: List<Long>) {
             score = state.score
             screen.chars = state.chars.map { it.toMutableList() }.toMutableList()
             ui.repaint()
+            if (terminated) { // restart game
+                terminated = false
+                play()
+            }
         }
     }
 }
@@ -112,12 +111,9 @@ class BreakoutUi(val game: Game, inputChannel: Channel<Long>) : JPanel() {
                         null
                     }
                 }
-                println("Before launch send input $input")
                 if (input != null && !game.terminated) {
                     GlobalScope.launch {
-                        println("Sending input $input in ${Thread.currentThread().name}")
                         game.processor.afterInputHook = { _, _ ->
-                            println("Saving state in ${Thread.currentThread().name}")
                             val currentGameState = GameState(
                                 game.processor.currentIndex,
                                 game.processor.currentBase,

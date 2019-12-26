@@ -1,5 +1,5 @@
-import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
@@ -73,11 +73,11 @@ class Day13Spec : Spek({
             on("execute int codes") {
                 runBlocking {
                     var terminated = false
-                    async {
+                    launch {
                         processor.execute()
                         terminated = true
                     }
-                    async {
+                    launch {
                         while(!terminated) {
                             val x = outputChannel.receive().toInt()
                             val y = outputChannel.receive().toInt()
