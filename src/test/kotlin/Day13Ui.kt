@@ -133,6 +133,10 @@ class BreakoutUi(val game: Game, inputChannel: Channel<Long>) : JPanel() {
 
     override fun paint(g: Graphics) {
         super.paint(g)
+        with (g as Graphics2D) {
+            setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+            setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_NORMALIZE)
+        }
         g.color = backgroundColor
         g.fillRect(0, 0, this.size.width, this.size.height)
         g.color = scoreFontColor
@@ -145,7 +149,7 @@ class BreakoutUi(val game: Game, inputChannel: Channel<Long>) : JPanel() {
             for (x in 0 until game.screen.screenWidth) {
                 val c = game.screen[Coord2(x, y)]
                 val outputChar = if (c == 'o' && y >= 24) 'O' else c
-                drawCell(g as Graphics2D, outputChar, x, y)
+                drawCell(g, outputChar, x, y)
             }
         }
 
@@ -155,10 +159,7 @@ class BreakoutUi(val game: Game, inputChannel: Channel<Long>) : JPanel() {
         return arg * (CELL_MARGIN + CELL_SIZE) + CELL_MARGIN
     }
 
-    fun drawCell(g: Graphics2D, value: Char, x: Int, y: Int) {
-        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
-        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_NORMALIZE)
-
+    fun drawCell(g: Graphics, value: Char, x: Int, y: Int) {
         val xOffset = offsetCoors(x)
         val yOffset = offsetCoors(y) + 24
         g.color = boardFontColor
