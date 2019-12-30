@@ -66,7 +66,7 @@ class Day13Spec : Spek({
         given("intCodes of exercise and screen") {
             val intCodesString = readResource("day13Input.txt")!!
             val intCodes = parseIntCodes09(intCodesString)
-            val screen = GameScreen()
+            val screen = GameBoard()
             val inputChannel = Channel<Long>()
             val outputChannel = Channel<Long>()
             val processor = IntCodeProcessor(inputChannel, outputChannel, intCodes)
@@ -95,9 +95,92 @@ class Day13Spec : Spek({
             }
         }
     }
+    describe("part 2") {
+        describe("disassemble int codes") {
+            val intCodesString = readResource("day13Input.txt")!!
+            val intCodes = parseIntCodes09(intCodesString)
+            it("should disassemble to the right codes") {
+                val disassembled = intCodes.disassemble()
+                disassembled.lines().take(5).joinToString("\n") `should equal` """
+                    
+                """.trimIndent()
+            }
+
+        }
+        given("intCodes of exercise and screen") {
+            val intCodesString = readResource("day13Input.txt")!!
+            val intCodes = parseIntCodes09(intCodesString)
+            println(intCodes.disassemble())
+
+
+        }
+    }
 })
 
-class GameScreen {
+fun List<Long>.disassemble(): String =
+    sequence {
+        var currentIndex = 0
+        while (currentIndex < size) {
+            val commandWithParameterModes = this@disassemble.get(currentIndex)
+            val disassembedCommand = try {
+                val (command, parameterModes) = commandWithParameterModes.toCommand09()
+                 when(command) {
+                    1L -> { // Add
+                        currentIndex += 4
+                        "ADD"
+                    }
+                    2L -> { // Multiply
+                        currentIndex += 4
+                        "MUL"
+                    }
+                    3L -> { // Input
+                        currentIndex += 2
+                        "INP"
+                    }
+                    4L -> { // Ouput
+                        currentIndex += 2
+                        "OUT"
+                    }
+                    5L -> { // Jump if true
+                        currentIndex += 3
+                        "JMP TRUE"
+                    }
+                    6L -> { // Jump if false
+                        currentIndex += 3
+                        "JMP FALSE"
+                    }
+                    7L -> { // Less than
+                        currentIndex += 4
+                        "JMP LESS"
+                    }
+                    8L -> { // Equals
+                        currentIndex += 4
+                        "JMP EQ"
+                    }
+                    9L -> { // Add relative base
+                        currentIndex += 2
+                        "ADB"
+                    }
+                    99L ->  {
+                        currentIndex += 1
+                        "END"
+                    }
+                    else -> {
+                        currentIndex += 1
+                        commandWithParameterModes.toString()
+                    }
+                }
+
+            } catch(e: java.lang.IllegalArgumentException) { // Illegal parameter mode
+                currentIndex += 1
+                commandWithParameterModes.toString()
+            }
+            yield(disassembedCommand)
+        }
+    }.joinToString("\n")
+
+
+class GameBoard {
     val screenWidth = 51
     val screenHeight = 26
     var chars = MutableList(screenHeight) { MutableList(screenWidth) { ' '} }

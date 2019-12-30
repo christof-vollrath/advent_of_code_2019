@@ -32,7 +32,7 @@ class Game(intCodes: List<Long>) {
     val inputChannel = Channel<Long>(500)
     val outputChannel = Channel<Long>()
     val processor = IntCodeProcessor(inputChannel, outputChannel, intCodes)
-    val screen = GameScreen()
+    val screen = GameBoard()
     val ui = createUi(this, inputChannel)
     var score = 0
     var terminated = false
