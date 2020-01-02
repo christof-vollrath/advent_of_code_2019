@@ -1,3 +1,10 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+import kotlin.math.ceil
+
 /*
 --- Day 14: Space Stoichiometry ---
 
@@ -110,3 +117,100 @@ Here are some larger examples:
 
 Given the list of reactions in your puzzle input, what is the minimum amount of ORE required to produce exactly 1 FUEL?
  */
+
+class Chemical private constructor (val name: String) {
+    companion object {
+        val chemicalsMap = mutableMapOf<String, Chemical>()
+        fun create(name: String): Chemical {
+            val found = chemicalsMap[name]
+            return if (found != null) found
+                else {
+                val chemical = Chemical(name)
+                chemicalsMap[name] = chemical
+                chemical
+            }
+        }
+    }
+}
+data class ChemicalQuantity(val quantity: Int, val chemical: Chemical)
+data class Reaction(val input: List<ChemicalQuantity>, val output: ChemicalQuantity)
+
+val ORE = Chemical.create("ORE")
+
+class Day14Spec : Spek({
+
+    describe("part 1") {
+        describe("calculate ore") {
+            given("first example") {
+                val reactionList = listOf(
+                    Reaction(
+                        listOf(
+                            ChemicalQuantity(10, Chemical.create("ORE"))
+                        ),
+                        ChemicalQuantity(10, Chemical.create("A"))
+                    ),
+                    Reaction(
+                        listOf(
+                            ChemicalQuantity(1, Chemical.create("ORE"))
+                        ),
+                        ChemicalQuantity(1, Chemical.create("B"))
+                    ),
+                    Reaction(
+                        listOf(
+                            ChemicalQuantity(7, Chemical.create("A")),
+                            ChemicalQuantity(1, Chemical.create("B"))
+                        ),
+                        ChemicalQuantity(1, Chemical.create("C"))
+                    ),
+                    Reaction(
+                        listOf(
+                            ChemicalQuantity(7, Chemical.create("A")),
+                            ChemicalQuantity(1, Chemical.create("C"))
+                        ),
+                        ChemicalQuantity(1, Chemical.create("D"))
+                    ),
+                    Reaction(
+                        listOf(
+                            ChemicalQuantity(7, Chemical.create("A")),
+                            ChemicalQuantity(1, Chemical.create("D"))
+                        ),
+                        ChemicalQuantity(1, Chemical.create("E"))
+                    ),
+                    Reaction(
+                        listOf(
+                            ChemicalQuantity(7, Chemical.create("A")),
+                            ChemicalQuantity(1, Chemical.create("E"))
+                        ),
+                        ChemicalQuantity(1, Chemical.create("FUEL"))
+                    )
+                )
+                it("should calculate ore for a direct reaction") {
+                    val reactions = Reactions(reactionList)
+                    reactions.oreNeeded(10, "A") `should equal` 10
+                }
+                it("should calculate ore for a direct reaction when more is needed than one reaction") {
+                    val reactions = Reactions(reactionList)
+                    reactions.oreNeeded(11, "A") `should equal` 20
+                }
+            }
+        }
+    }
+})
+
+class Reactions(reactionsList: List<Reaction>) {
+    val reactionMap: Map<Chemical, Reaction> = reactionsList.map { it.output.chemical to it }.toMap()
+
+    fun oreNeeded(quantity: Int, name: String) = oreNeeded(quantity, Chemical.create(name))
+    fun oreNeeded(quantity: Int, chemical: Chemical): Int {
+        val reaction = reactionMap[chemical] ?: error("No reaction found to produce $quantity of $chemical.name")
+        val input = reaction.input
+        return if (input.size == 1 && input[0].chemical == ORE) {
+            val inputQuantity = input[0].quantity
+            val outputQuantity = reaction.output.quantity
+            return ceil(inputQuantity.toDouble() / outputQuantity.toDouble() * quantity / outputQuantity.toDouble()).toInt() * inputQuantity
+        } else {
+            TODO()
+        }
+
+    }
+}
