@@ -3,6 +3,8 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
 import kotlin.math.ceil
 
 /*
@@ -226,9 +228,63 @@ class Day14Spec : Spek({
                 }
 
             }
+            given("first example as string") {
+                val reactionString = """
+                    10 ORE => 10 A
+                    1 ORE => 1 B
+                    7 A, 1 B => 1 C
+                    7 A, 1 C => 1 D
+                    7 A, 1 D => 1 E
+                    7 A, 1 E => 1 FUEL
+                """.trimIndent()
+                val reactionList = reactionString.parseReactions()
+                it("should be parsed correctly") {
+                    reactionList.size `should equal` 6
+                }
+                it("should calculate ore for fuel") {
+                    val reactions = Reactions(reactionList)
+                    reactions.oreNeeded(1, "FUEL") `should equal` 31
+                }
+            }
+            describe("more examples") {
+                // see https://www.mathsisfun.com/polar-cartesian-coordinates.html
+                val testData = arrayOf(
+                    data("""
+                        9 ORE => 2 A
+                        8 ORE => 3 B
+                        7 ORE => 5 C
+                        3 A, 4 B => 1 AB
+                        5 B, 7 C => 1 BC
+                        4 C, 1 A => 1 CA
+                        2 AB, 3 BC, 4 CA => 1 FUEL 
+                    """.trimIndent(), 165)
+                )
+                onData("reactions %s ", with = *testData) { reactionString, expected ->
+                    it("should calculate expected $expected ore") {
+                        val reactionList = reactionString.parseReactions()
+                        val reactions = Reactions(reactionList)
+                        reactions.oreNeeded(1, "FUEL") `should equal` expected
+                    }
+                }
+            }
         }
     }
 })
+
+private fun String.parseReactions(): List<Reaction> = lines().map { line ->
+    val (inputString, outputString) = line.split("=>")
+    val inputs = inputString.split(",").map { input ->
+        val (quantityString, chemicalString) = input.trim().split(" ")
+        val quantity = quantityString.trim().toInt()
+        val chemical = Chemical.create(chemicalString.trim())
+        ChemicalQuantity(quantity, chemical)
+    }
+    val (outputQuantityString, outputChemicalString) = outputString.trim().split(" ")
+    val outputQuantity = outputQuantityString.trim().toInt()
+    val outputChemical = Chemical.create(outputChemicalString.trim())
+    val output = ChemicalQuantity(outputQuantity, outputChemical)
+    Reaction(inputs, output)
+}
 
 class Reactions(reactionsList: List<Reaction>) {
     val reactionMap: Map<Chemical, Reaction> = reactionsList.map { it.output.chemical to it }.toMap()
