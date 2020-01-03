@@ -131,9 +131,33 @@ class Chemical private constructor (val name: String) {
             }
         }
     }
+    override fun toString(): String = "Chemical(name='$name')"
 }
+
 data class ChemicalQuantity(val quantity: Int, val chemical: Chemical)
-data class Reaction(val input: List<ChemicalQuantity>, val output: ChemicalQuantity)
+data class MutableChemicalQuantity(var quantity: Int, val chemical: Chemical) {
+    constructor(chemicalQuantity: ChemicalQuantity): this(chemicalQuantity.quantity, chemicalQuantity.chemical)
+}
+class Inventory : MutableMap<Chemical, MutableChemicalQuantity> by HashMap() {
+    override fun toString() = values.toString()
+    fun add(chemical: Chemical, surplus: Int) {
+        val existing = get(chemical)
+        if (existing != null) existing.quantity += surplus
+        else put(chemical, MutableChemicalQuantity(surplus, chemical))
+    }
+}
+
+data class Reaction(val input: List<ChemicalQuantity>, val output: ChemicalQuantity) {
+    fun neededInput(quantity: Int): Pair<List<ChemicalQuantity>, Int>{
+        val outputQuantity = output.quantity
+        val reactionNr = ceil(quantity / outputQuantity.toDouble()).toInt()
+        val inputChemicalQuantities = input.map {inputChemicalQuantity ->
+            ChemicalQuantity(reactionNr * inputChemicalQuantity.quantity, inputChemicalQuantity.chemical)
+        }
+        val surplus = reactionNr * outputQuantity - quantity
+        return inputChemicalQuantities to surplus
+    }
+}
 
 val ORE = Chemical.create("ORE")
 
@@ -192,6 +216,15 @@ class Day14Spec : Spek({
                     val reactions = Reactions(reactionList)
                     reactions.oreNeeded(11, "A") `should equal` 20
                 }
+                it("should calculate ore when more reactions are needed") {
+                    val reactions = Reactions(reactionList)
+                    reactions.oreNeeded(20, "C") `should equal` 160
+                }
+                it("should calculate ore for fuel") {
+                    val reactions = Reactions(reactionList)
+                    reactions.oreNeeded(1, "FUEL") `should equal` 31
+                }
+
             }
         }
     }
@@ -200,17 +233,39 @@ class Day14Spec : Spek({
 class Reactions(reactionsList: List<Reaction>) {
     val reactionMap: Map<Chemical, Reaction> = reactionsList.map { it.output.chemical to it }.toMap()
 
-    fun oreNeeded(quantity: Int, name: String) = oreNeeded(quantity, Chemical.create(name))
-    fun oreNeeded(quantity: Int, chemical: Chemical): Int {
-        val reaction = reactionMap[chemical] ?: error("No reaction found to produce $quantity of $chemical.name")
-        val input = reaction.input
-        return if (input.size == 1 && input[0].chemical == ORE) {
-            val inputQuantity = input[0].quantity
-            val outputQuantity = reaction.output.quantity
-            return ceil(inputQuantity.toDouble() / outputQuantity.toDouble() * quantity / outputQuantity.toDouble()).toInt() * inputQuantity
-        } else {
-            TODO()
+    fun oreNeeded(quantity: Int, name: String) = oreNeeded(ChemicalQuantity(quantity, Chemical.create(name)))
+    fun oreNeeded(outputChemicalQuantity: ChemicalQuantity): Int {
+        var oreQuantity = 0
+        var needed = listOf(outputChemicalQuantity)
+        val inventory = Inventory()
+        while (needed.isNotEmpty()) {
+            println("oreQuanitity=$oreQuantity")
+            println("needed=$needed")
+            println("inventory=$inventory")
+            oreQuantity += needed.filter { it.chemical == ORE }.map { it.quantity }.sum()
+            needed = neededInputs(needed.filter { it.chemical != ORE }, inventory)
         }
-
+        return oreQuantity
+    }
+    fun neededInputs(outputs: List<ChemicalQuantity>, inventory: Inventory): List<ChemicalQuantity> {
+        return outputs.flatMap {ouput ->
+            val reaction = reactionMap[ouput.chemical] ?: error("No reaction found to produce ${ouput.quantity} of ${ouput.chemical.name}")
+            val (neededChemicalQuanitities, surplus) = reaction.neededInput(ouput.quantity)
+            if (surplus > 0) inventory.add(ouput.chemical, surplus)
+            neededChemicalQuanitities.mapNotNull { neededChemicalQuantity ->
+                val inventoryChemicalQuantity = inventory[neededChemicalQuantity.chemical]
+                if (inventoryChemicalQuantity != null) {
+                    // Take it from inventory
+                    if (inventoryChemicalQuantity.quantity >= neededChemicalQuantity.quantity) {
+                        inventoryChemicalQuantity.quantity -= neededChemicalQuantity.quantity
+                        null // Need not to produce anything
+                    } else {
+                        val reducedQuantity = ChemicalQuantity(neededChemicalQuantity.quantity - inventoryChemicalQuantity.quantity, neededChemicalQuantity.chemical)
+                        inventoryChemicalQuantity.quantity = 0
+                        reducedQuantity
+                    }
+                } else neededChemicalQuantity
+            }
+        }
     }
 }
