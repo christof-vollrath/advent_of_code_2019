@@ -166,6 +166,18 @@ val ORE = Chemical.create("ORE")
 class Day14Spec : Spek({
 
     describe("part 1") {
+        describe("compact chemical quantities by adding quantities with same chemical") {
+            val testData = arrayOf(
+                data(listOf<ChemicalQuantity>(), listOf<ChemicalQuantity>()),
+                data(listOf(ChemicalQuantity(1, Chemical.create("A")), ChemicalQuantity(2, Chemical.create("A"))), listOf(ChemicalQuantity(3, Chemical.create("A"))))
+            )
+            onData("compacting %s ", with = *testData) { chemicalQuantities, expected ->
+                it("should result to $expected") {
+                    val compactedList = chemicalQuantities.compactQuantities()
+                    compactedList `should equal` expected
+                }
+            }
+        }
         describe("calculate ore") {
             given("first example") {
                 val reactionList = listOf(
@@ -257,7 +269,51 @@ class Day14Spec : Spek({
                         5 B, 7 C => 1 BC
                         4 C, 1 A => 1 CA
                         2 AB, 3 BC, 4 CA => 1 FUEL 
-                    """.trimIndent(), 165)
+                    """.trimIndent(), 165),
+                    data("""
+                        157 ORE => 5 NZVS
+                        165 ORE => 6 DCFZ
+                        44 XJWVT, 5 KHKGT, 1 QDVJ, 29 NZVS, 9 GPVTF, 48 HKGWZ => 1 FUEL
+                        12 HKGWZ, 1 GPVTF, 8 PSHF => 9 QDVJ
+                        179 ORE => 7 PSHF
+                        177 ORE => 5 HKGWZ
+                        7 DCFZ, 7 PSHF => 2 XJWVT
+                        165 ORE => 2 GPVTF
+                        3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT
+                    """.trimIndent(), 13312),
+                    data("""
+                        2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
+                        17 NVRVD, 3 JNWZP => 8 VPVL
+                        53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL
+                        22 VJHF, 37 MNCFX => 5 FWMGM
+                        139 ORE => 4 NVRVD
+                        144 ORE => 7 JNWZP
+                        5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC
+                        5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV
+                        145 ORE => 6 MNCFX
+                        1 NVRVD => 8 CXFTF
+                        1 VJHF, 6 MNCFX => 4 RFSQX
+                        176 ORE => 6 VJHF
+                    """.trimIndent(), 180697),
+                    data("""
+                        171 ORE => 8 CNZTR
+                        7 ZLQW, 3 BMBT, 9 XCVML, 26 XMNCP, 1 WPTQ, 2 MZWV, 1 RJRHP => 4 PLWSL
+                        114 ORE => 4 BHXH
+                        14 VRPVC => 6 BMBT
+                        6 BHXH, 18 KTJDG, 12 WPTQ, 7 PLWSL, 31 FHTLT, 37 ZDVW => 1 FUEL
+                        6 WPTQ, 2 BMBT, 8 ZLQW, 18 KTJDG, 1 XMNCP, 6 MZWV, 1 RJRHP => 6 FHTLT
+                        15 XDBXC, 2 LTCX, 1 VRPVC => 6 ZLQW
+                        13 WPTQ, 10 LTCX, 3 RJRHP, 14 XMNCP, 2 MZWV, 1 ZLQW => 1 ZDVW
+                        5 BMBT => 4 WPTQ
+                        189 ORE => 9 KTJDG
+                        1 MZWV, 17 XDBXC, 3 XCVML => 2 XMNCP
+                        12 VRPVC, 27 CNZTR => 2 XDBXC
+                        15 KTJDG, 12 BHXH => 5 XCVML
+                        3 BHXH, 2 VRPVC => 7 MZWV
+                        121 ORE => 7 VRPVC
+                        7 XCVML => 6 RJRHP
+                        5 BHXH, 4 VRPVC => 5 LTCX
+                    """.trimIndent(), 2210736)
                 )
                 onData("reactions %s ", with = *testData) { reactionString, expected ->
                     it("should calculate expected $expected ore") {
@@ -299,7 +355,7 @@ class Reactions(reactionsList: List<Reaction>) {
             println("needed=$needed")
             println("inventory=$inventory")
             oreQuantity += needed.filter { it.chemical == ORE }.map { it.quantity }.sum()
-            needed = neededInputs(needed.filter { it.chemical != ORE }, inventory)
+            needed = neededInputs(needed.filter { it.chemical != ORE }.compactQuantities(), inventory)
         }
         return oreQuantity
     }
@@ -309,15 +365,18 @@ class Reactions(reactionsList: List<Reaction>) {
             val (neededChemicalQuanitities, surplus) = reaction.neededInput(ouput.quantity)
             if (surplus > 0) inventory.add(ouput.chemical, surplus)
             neededChemicalQuanitities.mapNotNull { neededChemicalQuantity ->
+                println("neededChemicalQuantity=$neededChemicalQuantity")
                 val inventoryChemicalQuantity = inventory[neededChemicalQuantity.chemical]
-                if (inventoryChemicalQuantity != null) {
+                if (inventoryChemicalQuantity != null && inventoryChemicalQuantity.quantity > 0) {
                     // Take it from inventory
                     if (inventoryChemicalQuantity.quantity >= neededChemicalQuantity.quantity) {
                         inventoryChemicalQuantity.quantity -= neededChemicalQuantity.quantity
+                        println("Took from inventory inventoryChemicalQuantity=$inventoryChemicalQuantity")
                         null // Need not to produce anything
                     } else {
                         val reducedQuantity = ChemicalQuantity(neededChemicalQuantity.quantity - inventoryChemicalQuantity.quantity, neededChemicalQuantity.chemical)
                         inventoryChemicalQuantity.quantity = 0
+                        println("reducedQuantity=$reducedQuantity")
                         reducedQuantity
                     }
                 } else neededChemicalQuantity
@@ -325,3 +384,10 @@ class Reactions(reactionsList: List<Reaction>) {
         }
     }
 }
+
+fun List<ChemicalQuantity>.compactQuantities(): List<ChemicalQuantity> =
+    groupBy { it.chemical }
+        .map { (chemical, quantities) ->
+            val sum = quantities.map { it.quantity }.sum()
+            ChemicalQuantity(sum, chemical)
+        }
