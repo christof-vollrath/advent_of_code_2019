@@ -147,10 +147,25 @@ class Inventory : MutableMap<Chemical, MutableChemicalQuantity> by HashMap() {
         if (existing != null) existing.quantity += surplus
         else put(chemical, MutableChemicalQuantity(surplus, chemical))
     }
+    fun useInventory(quantities: List<ChemicalQuantity>): List<ChemicalQuantity> =
+        quantities.mapNotNull { neededChemicalQuantity ->
+            val inventoryChemicalQuantity = get(neededChemicalQuantity.chemical)
+            if (inventoryChemicalQuantity != null && inventoryChemicalQuantity.quantity > 0) {
+                // Take it from inventory
+                if (inventoryChemicalQuantity.quantity >= neededChemicalQuantity.quantity) {
+                    inventoryChemicalQuantity.quantity -= neededChemicalQuantity.quantity
+                    null // Need not to produce anything
+                } else {
+                    val reducedQuantity = ChemicalQuantity(neededChemicalQuantity.quantity - inventoryChemicalQuantity.quantity, neededChemicalQuantity.chemical)
+                    inventoryChemicalQuantity.quantity = 0
+                    reducedQuantity
+                }
+            } else neededChemicalQuantity
+        }
 }
 
 data class Reaction(val input: List<ChemicalQuantity>, val output: ChemicalQuantity) {
-    fun neededInput(quantity: Int): Pair<List<ChemicalQuantity>, Int>{
+    fun react(quantity: Int): Pair<List<ChemicalQuantity>, Int>{
         val outputQuantity = output.quantity
         val reactionNr = ceil(quantity / outputQuantity.toDouble()).toInt()
         val inputChemicalQuantities = input.map {inputChemicalQuantity ->
@@ -162,6 +177,54 @@ data class Reaction(val input: List<ChemicalQuantity>, val output: ChemicalQuant
 }
 
 val ORE = Chemical.create("ORE")
+
+fun String.parseReactions(): List<Reaction> = lines().map { line ->
+    val (inputString, outputString) = line.split("=>")
+    val inputs = inputString.split(",").map { input ->
+        val (quantityString, chemicalString) = input.trim().split(" ")
+        val quantity = quantityString.trim().toInt()
+        val chemical = Chemical.create(chemicalString.trim())
+        ChemicalQuantity(quantity, chemical)
+    }
+    val (outputQuantityString, outputChemicalString) = outputString.trim().split(" ")
+    val outputQuantity = outputQuantityString.trim().toInt()
+    val outputChemical = Chemical.create(outputChemicalString.trim())
+    val output = ChemicalQuantity(outputQuantity, outputChemical)
+    Reaction(inputs, output)
+}
+
+class Reactions(reactionsList: List<Reaction>) {
+    val reactionMap: Map<Chemical, Reaction> = reactionsList.map { it.output.chemical to it }.toMap()
+
+    fun oreNeeded(quantity: Int, name: String) = oreNeeded(ChemicalQuantity(quantity, Chemical.create(name)))
+    fun oreNeeded(outputChemicalQuantity: ChemicalQuantity): Int {
+        var oreQuantity = 0
+        var needed = listOf(outputChemicalQuantity)
+        val inventory = Inventory()
+        while (needed.isNotEmpty()) {
+            oreQuantity += needed.filter { it.chemical == ORE }.map { it.quantity }.sum()
+            val compactQuantities = needed.filter { it.chemical != ORE }.compactQuantities()
+            val reducedQuantities = inventory.useInventory(compactQuantities)
+            needed = neededInputs(reducedQuantities, inventory)
+        }
+        return oreQuantity
+    }
+    fun neededInputs(outputs: List<ChemicalQuantity>, inventory: Inventory): List<ChemicalQuantity> {
+        return outputs.flatMap {ouput ->
+            val reaction = reactionMap[ouput.chemical] ?: error("No reaction found to produce ${ouput.quantity} of ${ouput.chemical.name}")
+            val (neededChemicalQuanitities, surplus) = reaction.react(ouput.quantity)
+            if (surplus > 0) inventory.add(ouput.chemical, surplus)
+            neededChemicalQuanitities
+        }
+    }
+}
+
+fun List<ChemicalQuantity>.compactQuantities(): List<ChemicalQuantity> =
+    groupBy { it.chemical }
+        .map { (chemical, quantities) ->
+            val sum = quantities.map { it.quantity }.sum()
+            ChemicalQuantity(sum, chemical)
+        }
 
 class Day14Spec : Spek({
 
@@ -324,70 +387,16 @@ class Day14Spec : Spek({
                 }
             }
         }
-    }
-})
-
-private fun String.parseReactions(): List<Reaction> = lines().map { line ->
-    val (inputString, outputString) = line.split("=>")
-    val inputs = inputString.split(",").map { input ->
-        val (quantityString, chemicalString) = input.trim().split(" ")
-        val quantity = quantityString.trim().toInt()
-        val chemical = Chemical.create(chemicalString.trim())
-        ChemicalQuantity(quantity, chemical)
-    }
-    val (outputQuantityString, outputChemicalString) = outputString.trim().split(" ")
-    val outputQuantity = outputQuantityString.trim().toInt()
-    val outputChemical = Chemical.create(outputChemicalString.trim())
-    val output = ChemicalQuantity(outputQuantity, outputChemical)
-    Reaction(inputs, output)
-}
-
-class Reactions(reactionsList: List<Reaction>) {
-    val reactionMap: Map<Chemical, Reaction> = reactionsList.map { it.output.chemical to it }.toMap()
-
-    fun oreNeeded(quantity: Int, name: String) = oreNeeded(ChemicalQuantity(quantity, Chemical.create(name)))
-    fun oreNeeded(outputChemicalQuantity: ChemicalQuantity): Int {
-        var oreQuantity = 0
-        var needed = listOf(outputChemicalQuantity)
-        val inventory = Inventory()
-        while (needed.isNotEmpty()) {
-            println("oreQuanitity=$oreQuantity")
-            println("needed=$needed")
-            println("inventory=$inventory")
-            oreQuantity += needed.filter { it.chemical == ORE }.map { it.quantity }.sum()
-            needed = neededInputs(needed.filter { it.chemical != ORE }.compactQuantities(), inventory)
-        }
-        return oreQuantity
-    }
-    fun neededInputs(outputs: List<ChemicalQuantity>, inventory: Inventory): List<ChemicalQuantity> {
-        return outputs.flatMap {ouput ->
-            val reaction = reactionMap[ouput.chemical] ?: error("No reaction found to produce ${ouput.quantity} of ${ouput.chemical.name}")
-            val (neededChemicalQuanitities, surplus) = reaction.neededInput(ouput.quantity)
-            if (surplus > 0) inventory.add(ouput.chemical, surplus)
-            neededChemicalQuanitities.mapNotNull { neededChemicalQuantity ->
-                println("neededChemicalQuantity=$neededChemicalQuantity")
-                val inventoryChemicalQuantity = inventory[neededChemicalQuantity.chemical]
-                if (inventoryChemicalQuantity != null && inventoryChemicalQuantity.quantity > 0) {
-                    // Take it from inventory
-                    if (inventoryChemicalQuantity.quantity >= neededChemicalQuantity.quantity) {
-                        inventoryChemicalQuantity.quantity -= neededChemicalQuantity.quantity
-                        println("Took from inventory inventoryChemicalQuantity=$inventoryChemicalQuantity")
-                        null // Need not to produce anything
-                    } else {
-                        val reducedQuantity = ChemicalQuantity(neededChemicalQuantity.quantity - inventoryChemicalQuantity.quantity, neededChemicalQuantity.chemical)
-                        inventoryChemicalQuantity.quantity = 0
-                        println("reducedQuantity=$reducedQuantity")
-                        reducedQuantity
-                    }
-                } else neededChemicalQuantity
+        describe("exercise") {
+            given("exercise input") {
+                val reactionString = readResource("day14Input.txt")!!
+                val reactionList = reactionString.parseReactions()
+                it("should calculate expected expected ore") {
+                    val reactions = Reactions(reactionList)
+                    reactions.oreNeeded(1, "FUEL") `should equal` 2556890
+                }
             }
         }
-    }
-}
 
-fun List<ChemicalQuantity>.compactQuantities(): List<ChemicalQuantity> =
-    groupBy { it.chemical }
-        .map { (chemical, quantities) ->
-            val sum = quantities.map { it.quantity }.sum()
-            ChemicalQuantity(sum, chemical)
-        }
+    }
+})
