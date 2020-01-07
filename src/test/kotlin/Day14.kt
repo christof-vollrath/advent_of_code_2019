@@ -118,6 +118,18 @@ Here are some larger examples:
 5 BHXH, 4 VRPVC => 5 LTCX
 
 Given the list of reactions in your puzzle input, what is the minimum amount of ORE required to produce exactly 1 FUEL?
+
+--- Part Two ---
+
+After collecting ORE for a while, you check your cargo hold: 1 trillion (1000000000000) units of ORE.
+
+With that much ore, given the examples above:
+
+The 13312 ORE-per-FUEL example could produce 82892753 FUEL.
+The 180697 ORE-per-FUEL example could produce 5586022 FUEL.
+The 2210736 ORE-per-FUEL example could produce 460664 FUEL.
+Given 1 trillion ORE, what is the maximum amount of FUEL you can produce?
+
  */
 
 class Chemical private constructor (val name: String) {
@@ -197,10 +209,9 @@ class Reactions(reactionsList: List<Reaction>) {
     val reactionMap: Map<Chemical, Reaction> = reactionsList.map { it.output.chemical to it }.toMap()
 
     fun oreNeeded(quantity: Int, name: String) = oreNeeded(ChemicalQuantity(quantity, Chemical.create(name)))
-    fun oreNeeded(outputChemicalQuantity: ChemicalQuantity): Int {
+    fun oreNeeded(outputChemicalQuantity: ChemicalQuantity, inventory: Inventory = Inventory()): Int {
         var oreQuantity = 0
         var needed = listOf(outputChemicalQuantity)
-        val inventory = Inventory()
         while (needed.isNotEmpty()) {
             oreQuantity += needed.filter { it.chemical == ORE }.map { it.quantity }.sum()
             val compactQuantities = needed.filter { it.chemical != ORE }.compactQuantities()
@@ -216,6 +227,24 @@ class Reactions(reactionsList: List<Reaction>) {
             if (surplus > 0) inventory.add(ouput.chemical, surplus)
             neededChemicalQuanitities
         }
+    }
+
+    fun fuelProduced(oreQuantity: Long): Long {
+        val oreNeededFor1Fuel = oreNeeded(ChemicalQuantity(1, Chemical.create("FUEL")))
+        val guessFuel = (oreQuantity / oreNeededFor1Fuel).toInt()
+
+        // Start with huge junk
+        val inventory = Inventory()
+        var oreNeeded = oreNeeded(ChemicalQuantity(guessFuel, Chemical.create("FUEL")))
+        var fuel = guessFuel.toLong()
+        while(true) {
+            val oreNeededFor1Fuel = oreNeeded(ChemicalQuantity(1, Chemical.create("FUEL")),inventory)
+            oreNeeded += oreNeededFor1Fuel
+            if (oreNeeded > oreQuantity) break // Not enought ore anymore
+            fuel++
+            println("oreNeeded=$oreNeeded fuel=$fuel")
+        }
+        return fuel
     }
 }
 
@@ -398,5 +427,63 @@ class Day14Spec : Spek({
             }
         }
 
+    }
+
+    describe("part 2") {
+        describe("produce fuel") {
+            val testData = arrayOf(
+                data("""
+                        157 ORE => 5 NZVS
+                        165 ORE => 6 DCFZ
+                        44 XJWVT, 5 KHKGT, 1 QDVJ, 29 NZVS, 9 GPVTF, 48 HKGWZ => 1 FUEL
+                        12 HKGWZ, 1 GPVTF, 8 PSHF => 9 QDVJ
+                        179 ORE => 7 PSHF
+                        177 ORE => 5 HKGWZ
+                        7 DCFZ, 7 PSHF => 2 XJWVT
+                        165 ORE => 2 GPVTF
+                        3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT
+                    """.trimIndent(), 82892753L),
+                data("""
+                        2 VPVL, 7 FWMGM, 2 CXFTF, 11 MNCFX => 1 STKFG
+                        17 NVRVD, 3 JNWZP => 8 VPVL
+                        53 STKFG, 6 MNCFX, 46 VJHF, 81 HVMC, 68 CXFTF, 25 GNMV => 1 FUEL
+                        22 VJHF, 37 MNCFX => 5 FWMGM
+                        139 ORE => 4 NVRVD
+                        144 ORE => 7 JNWZP
+                        5 MNCFX, 7 RFSQX, 2 FWMGM, 2 VPVL, 19 CXFTF => 3 HVMC
+                        5 VJHF, 7 MNCFX, 9 VPVL, 37 CXFTF => 6 GNMV
+                        145 ORE => 6 MNCFX
+                        1 NVRVD => 8 CXFTF
+                        1 VJHF, 6 MNCFX => 4 RFSQX
+                        176 ORE => 6 VJHF
+                    """.trimIndent(), 5586022L),
+                data("""
+                        171 ORE => 8 CNZTR
+                        7 ZLQW, 3 BMBT, 9 XCVML, 26 XMNCP, 1 WPTQ, 2 MZWV, 1 RJRHP => 4 PLWSL
+                        114 ORE => 4 BHXH
+                        14 VRPVC => 6 BMBT
+                        6 BHXH, 18 KTJDG, 12 WPTQ, 7 PLWSL, 31 FHTLT, 37 ZDVW => 1 FUEL
+                        6 WPTQ, 2 BMBT, 8 ZLQW, 18 KTJDG, 1 XMNCP, 6 MZWV, 1 RJRHP => 6 FHTLT
+                        15 XDBXC, 2 LTCX, 1 VRPVC => 6 ZLQW
+                        13 WPTQ, 10 LTCX, 3 RJRHP, 14 XMNCP, 2 MZWV, 1 ZLQW => 1 ZDVW
+                        5 BMBT => 4 WPTQ
+                        189 ORE => 9 KTJDG
+                        1 MZWV, 17 XDBXC, 3 XCVML => 2 XMNCP
+                        12 VRPVC, 27 CNZTR => 2 XDBXC
+                        15 KTJDG, 12 BHXH => 5 XCVML
+                        3 BHXH, 2 VRPVC => 7 MZWV
+                        121 ORE => 7 VRPVC
+                        7 XCVML => 6 RJRHP
+                        5 BHXH, 4 VRPVC => 5 LTCX
+                    """.trimIndent(), 460664L)
+            )
+            onData("reactions %s ", with = *testData) { reactionString, expected ->
+                it("should produce $expected fuel") {
+                    val reactionList = reactionString.parseReactions()
+                    val reactions = Reactions(reactionList)
+                    reactions.fuelProduced(1000_000_000_000L) `should equal` expected
+                }
+            }
+        }
     }
 })
