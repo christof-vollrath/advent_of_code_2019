@@ -258,7 +258,6 @@ fun binarySearch(lower: Long, upper: Long, funct: (Long) -> Long, target: Long):
     while(true) {
         val middle = floor((currentLower + currentUpper) / 2.0).toLong()
         val res = funct(middle)
-        println("currentLower=$currentLower currentUpper=$currentUpper middle=$middle res=$res ")
         when {
             res == target -> return BinarySearchFound(middle)
             res > target -> {
@@ -587,6 +586,7 @@ class Day14Spec : Spek({
                     val fuel = reactions.fuelProduced(1000_000_000_000L)
                     val oreNeeded = reactions.oreNeeded(fuel, "FUEL")
                     oreNeeded `should be greater than` 999_000_000_000L // Should consume most of the available fuel
+                    oreNeeded `should be less than` 1000_000_000_000L
                     fuel `should equal` 1120408L
                 }
             }
