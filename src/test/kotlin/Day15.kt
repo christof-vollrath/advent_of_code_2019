@@ -101,6 +101,70 @@ to the location of the oxygen system?
 class Day15Spec : Spek({
 
     describe("part 1") {
+        describe("dummy droid") {
+            describe("moving the dummy") {
+                val droid = DummyDroid(Coord2(2, 1),
+                    """
+                        ###############
+                        #       # O   #
+                        #######       #
+                        ###############
+                    """.trimIndent())
+                it("should move to the west") {
+                    val result = droid.move(Direction.WEST)
+                    result `should equal` MoveResult.MOVED
+                }
+                it("should move back to the east") {
+                    val result = droid.move(Direction.EAST)
+                    result `should equal` MoveResult.MOVED
+                }
+                it("should find a wall") {
+                    var result: MoveResult
+                    do {
+                        result = droid.move(Direction.EAST)
+                    } while (result != MoveResult.WALL)
+                    result `should equal` MoveResult.WALL
+                }
+            }
+            describe("find oxygen") {
+                it("should find the oxygen for direct neighbour") {
+                    val droid = DummyDroid(Coord2(1, 1),
+                        """
+                            ####
+                            # O#
+                            ####
+                        """.trimIndent())
+                    val path = droid.findOxygen()
+                    path.size `should equal` 1
+                }
+                it("should find the oxygen for a distant neighbour") {
+                    val droid = DummyDroid(Coord2(2, 1),
+                        """
+                            ###############
+                            #       # O   #
+                            #######       #
+                            ###############
+                        """.trimIndent())
+                    val path = droid.findOxygen()
+                    println(path)
+                    path.size `should equal` 10
+                }
+                it("should find the oxygen for a distant neighbour with many paths") {
+                    val droid = DummyDroid(Coord2(2, 1),
+                        """
+                            ###############
+                            #       # #  O#
+                            # # # # # # ###
+                            #     #       #
+                            ###############
+                        """.trimIndent())
+                    val path = droid.findOxygen()
+                    println(path)
+                    path.size `should equal` 13
+                }
+            }
+
+        }
         given("int codes for the droid") {
             val intCodesString = readResource("day15Input.txt")!!
             val intCodes = parseIntCodes09(intCodesString)
@@ -122,20 +186,77 @@ class Day15Spec : Spek({
                     result `should equal` MoveResult.WALL
                 }
             }
+            describe("exercise") {
+                it("should find the oxygen") {
+                    val droid = Droid(intCodes)
+                    val path = droid.findOxygen()
+                    println(path)
+                    path.size `should equal` 10
+                }
+
+            }
         }
     }
 })
 
-enum class Direction(val id: Int) {
-    NORTH(1), SOUTH(2), WEST(3), EAST(4)
+abstract class AbstractDroid(var pos: Coord2) {
+
+    abstract fun move(direction: Direction): MoveResult
+    fun unmove(direction: Direction) = move(direction.undo)
+    fun move(directions: List<Direction>) = directions.forEach { move(it) }
+    fun unmove(directions: List<Direction>) = directions.forEach { unmove(it) }
+
+    fun findOxygen(): List<Direction> {
+        val allPathes = mutableMapOf(pos to emptyList<Direction>())
+        var workingPaths = mapOf(pos to emptyList<Direction>())
+        while(true) {
+            println("workingPaths=$workingPaths")
+            val newPaths = workingPaths.flatMap { posWithPath ->
+                val (_, path) = posWithPath
+                move(path)
+                val moves = Direction.values()
+                val resultPath = moves.mapNotNull { move ->
+                    val result = when(move(move)) {
+                        MoveResult.MOVED_TO_OXYGEN -> return path + move // found oxygen
+                        MoveResult.MOVED -> {
+                            val nextPos = pos
+                            unmove(move)
+                            if (! allPathes.contains(nextPos)) {
+                                nextPos to path + move
+                            } else null // path already known
+                        }
+                        MoveResult.WALL -> null
+                    }
+                    result
+                }
+                unmove(path)
+                resultPath
+            }
+            if (newPaths.isEmpty()) error("Oxygen not found")
+            else {
+                allPathes.putAll(newPaths)
+                workingPaths = newPaths.toMap()
+            }
+        }
+    }
 }
 
-class Droid(intCodes: List<Long>) {
-    fun move(west: Direction): MoveResult =
+class Droid(intCodes: List<Long>) : AbstractDroid(Coord2(0, 0)) {
+    override fun move(direction: Direction): MoveResult =
         runBlocking {
-            inputChannel.send(west.id.toLong())
+            inputChannel.send(direction.id.toLong())
             val result = outputChannel.receive()
-            MoveResult.fromId(result.toInt())!!
+            val moveResult = MoveResult.fromId(result.toInt())!!
+            if (moveResult in setOf(MoveResult.MOVED, MoveResult.MOVED_TO_OXYGEN)) {
+                pos = when(direction) {
+                    Direction.NORTH -> Coord2(pos.x, pos.y - 1)
+                    Direction.SOUTH -> Coord2(pos.x, pos.y + 1)
+                    Direction.WEST -> Coord2(pos.x - 1, pos.y)
+                    Direction.EAST -> Coord2(pos.x + 1, pos.y)
+                }
+            }
+            //println("move=$direction moveResult=$moveResult")
+            moveResult
         }
 
     val inputChannel = Channel<Long>()
@@ -147,7 +268,45 @@ class Droid(intCodes: List<Long>) {
             processor.execute()
         }
     }
+}
 
+class DummyDroid(start: Coord2, shipString: String) : AbstractDroid(start) {
+    val ship = shipString.lines().map { it.toList() }
+
+    override fun move(direction: Direction): MoveResult {
+        val nextPos = when(direction) {
+            Direction.NORTH -> Coord2(pos.x, pos.y - 1)
+            Direction.SOUTH -> Coord2(pos.x, pos.y + 1)
+            Direction.WEST -> Coord2(pos.x - 1, pos.y)
+            Direction.EAST -> Coord2(pos.x + 1, pos.y)
+        }
+        val result = when(ship[nextPos.y][nextPos.x]) {
+            '#' -> MoveResult.WALL
+            ' ' -> {
+                pos = nextPos
+                MoveResult.MOVED
+            }
+            'O' -> {
+                pos = nextPos
+                MoveResult.MOVED_TO_OXYGEN
+            }
+            else -> error("Wrong char in map at ${nextPos.x},${nextPos.y}")
+        }
+        return result
+    }
+}
+
+
+enum class Direction(val id: Int) {
+    NORTH(1), SOUTH(2), WEST(3), EAST(4);
+
+    val undo: Direction
+        get() = when(this) {
+            NORTH -> SOUTH
+            SOUTH -> NORTH
+            WEST -> EAST
+            EAST -> WEST
+        }
 }
 
 enum class MoveResult(val id: Int) {
