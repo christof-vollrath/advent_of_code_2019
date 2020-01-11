@@ -7,6 +7,9 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.data_driven.data
+import java.time.Year
+import org.jetbrains.spek.data_driven.on as onData
 
 /*
 --- Day 15: Oxygen System ---
@@ -96,6 +99,63 @@ In this example, it was only 2 moves away from the repair droid's starting posit
 What is the fewest number of movement commands required to move the repair droid from its starting position
 to the location of the oxygen system?
 
+--- Part Two ---
+
+You quickly repair the oxygen system; oxygen gradually fills the area.
+
+Oxygen starts in the location containing the repaired oxygen system.
+It takes one minute for oxygen to spread to all open locations
+that are adjacent to a location that already contains oxygen.
+Diagonal locations are not adjacent.
+
+In the example above, suppose you've used the droid to explore the area fully and have the following map
+(where locations that currently contain oxygen are marked O):
+
+ ##
+#..##
+#.#..#
+#.O.#
+ ###
+
+Initially, the only location which contains oxygen is the location of the repaired oxygen system.
+However, after one minute, the oxygen spreads to all open (.) locations
+that are adjacent to a location containing oxygen:
+
+ ##
+#..##
+#.#..#
+#OOO#
+ ###
+
+After a total of two minutes, the map looks like this:
+
+ ##
+#..##
+#O#O.#
+#OOO#
+ ###
+
+After a total of three minutes:
+
+ ##
+#O.##
+#O#OO#
+#OOO#
+ ###
+
+And finally, the whole region is full of oxygen after a total of four minutes:
+
+ ##
+#OO##
+#O#OO#
+#OOO#
+ ###
+
+So, in this example, all locations contain oxygen after 4 minutes.
+
+Use the repair droid to get a complete map of the area.
+How many minutes will it take to fill with oxygen?
+
  */
 
 abstract class AbstractDroid(var pos: Coord2) {
@@ -137,6 +197,61 @@ abstract class AbstractDroid(var pos: Coord2) {
             }
         }
     }
+
+    fun draw(): String {
+        val shipMap = mutableMapOf<Coord2, Char>()
+        shipMap[pos] = ' '
+        val allPaths = mutableMapOf(pos to emptyList<Direction>())
+        var workingPaths = mapOf(pos to emptyList<Direction>())
+        while(true) {
+            val newPaths = workingPaths.flatMap { posWithPath ->
+                val (_, path) = posWithPath
+                move(path)
+                val moves = Direction.values()
+                val resultPaths = moves.mapNotNull { move ->
+                    val moveResult = move(move)
+                    val result = when(moveResult) {
+                        MoveResult.MOVED_TO_OXYGEN -> {
+                            shipMap[pos] = 'O'
+                            unmove(move)
+                            if (! allPaths.contains(pos)) {
+                                pos to path + move
+                            } else null // path already known
+                        }
+                        MoveResult.MOVED -> {
+                            shipMap[pos] = ' '
+                            unmove(move)
+                            if (! allPaths.contains(pos)) {
+                                pos to path + move
+                            } else null // path already known
+                        }
+                        MoveResult.WALL -> {
+                            shipMap[moveCoord(move, pos)] = '#' // droid not moved, but wall is where the droid would have moved to
+                            null
+                        }
+                    }
+                    result
+                }
+                unmove(path)
+                resultPaths
+            }
+            if (newPaths.isEmpty()) break // everything handled
+            else {
+                allPaths.putAll(newPaths)
+                workingPaths = newPaths.toMap()
+            }
+        }
+        val maxY = shipMap.keys.maxBy { it.y }!!.y
+        val shipLists = (0..maxY).map { y ->
+            val maxX = shipMap.keys.maxBy { it.x }!!.x
+            (0..maxX).map { x ->
+                shipMap.getOrDefault(Coord2(x, y), ' ')
+            }.joinToString("")
+        }
+        return shipLists.joinToString("\n")
+    }
+
+    fun fillOxygen() = 1
 }
 
 class Droid(intCodes: List<Long>) : AbstractDroid(Coord2(0, 0)) {
@@ -146,12 +261,7 @@ class Droid(intCodes: List<Long>) : AbstractDroid(Coord2(0, 0)) {
             val result = outputChannel.receive()
             val moveResult = MoveResult.fromId(result.toInt())!!
             if (moveResult in setOf(MoveResult.MOVED, MoveResult.MOVED_TO_OXYGEN)) {
-                pos = when(direction) {
-                    Direction.NORTH -> Coord2(pos.x, pos.y - 1)
-                    Direction.SOUTH -> Coord2(pos.x, pos.y + 1)
-                    Direction.WEST -> Coord2(pos.x - 1, pos.y)
-                    Direction.EAST -> Coord2(pos.x + 1, pos.y)
-                }
+                pos = moveCoord(direction, pos)
             }
             //println("move=$direction moveResult=$moveResult")
             moveResult
@@ -168,7 +278,15 @@ class Droid(intCodes: List<Long>) : AbstractDroid(Coord2(0, 0)) {
     }
 }
 
-class DummyDroid(start: Coord2, shipString: String) : AbstractDroid(start) {
+fun moveCoord(direction: Direction, coord: Coord2): Coord2 =
+    when (direction) {
+        Direction.NORTH -> Coord2(coord.x, coord.y - 1)
+        Direction.SOUTH -> Coord2(coord.x, coord.y + 1)
+        Direction.WEST -> Coord2(coord.x - 1, coord.y)
+        Direction.EAST -> Coord2(coord.x + 1, coord.y)
+    }
+
+class DummyDroid(start: Coord2, val shipString: String) : AbstractDroid(start) {
     val ship = shipString.lines().map { it.toList() }
 
     override fun move(direction: Direction): MoveResult {
@@ -312,5 +430,36 @@ class Day15Spec : Spek({
 
             }
         }
+    }
+    describe("part 2") {
+        describe("draw maps and fill oxygen") {
+            val testData = arrayOf(
+                data(DummyDroid(Coord2(1, 1),
+                    """
+                        ####
+                        # O#
+                        ####
+                    """.trimIndent()), 1
+                ),
+                data(DummyDroid(Coord2(2, 1),
+                    """
+                        ###############
+                        #       # #  O#
+                        # # # # # # ###
+                        #     #       #
+                        ###############
+                    """.trimIndent()), 1)
+            )
+            onData("ship %s ", with = *testData) { droid, expected ->
+                it("should draw the map") {
+                    droid.draw() `should equal` droid.shipString
+                }
+                it("should result to $expected") {
+                    droid.fillOxygen() `should equal` 1
+                }
+            }
+
+        }
+
     }
 })
