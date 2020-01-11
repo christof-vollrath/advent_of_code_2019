@@ -98,6 +98,122 @@ to the location of the oxygen system?
 
  */
 
+abstract class AbstractDroid(var pos: Coord2) {
+
+    abstract fun move(direction: Direction): MoveResult
+    fun unmove(direction: Direction) = move(direction.undo)
+    fun move(directions: List<Direction>) = directions.forEach { move(it) }
+    fun unmove(directions: List<Direction>) = directions.reversed().forEach { unmove(it) }
+
+    fun findOxygen(): List<Direction> {
+        val allPaths = mutableMapOf(pos to emptyList<Direction>())
+        var workingPaths = mapOf(pos to emptyList<Direction>())
+        while(true) {
+            val newPaths = workingPaths.flatMap { posWithPath ->
+                val (_, path) = posWithPath
+                move(path)
+                val moves = Direction.values()
+                val resultPaths = moves.mapNotNull { move ->
+                    val result = when(move(move)) {
+                        MoveResult.MOVED_TO_OXYGEN -> return path + move // found oxygen
+                        MoveResult.MOVED -> {
+                            val nextPos = pos
+                            unmove(move)
+                            if (! allPaths.contains(nextPos)) {
+                                nextPos to path + move
+                            } else null // path already known
+                        }
+                        MoveResult.WALL -> null
+                    }
+                    result
+                }
+                unmove(path)
+                resultPaths
+            }
+            if (newPaths.isEmpty()) error("Oxygen not found")
+            else {
+                allPaths.putAll(newPaths)
+                workingPaths = newPaths.toMap()
+            }
+        }
+    }
+}
+
+class Droid(intCodes: List<Long>) : AbstractDroid(Coord2(0, 0)) {
+    override fun move(direction: Direction): MoveResult =
+        runBlocking {
+            inputChannel.send(direction.id.toLong())
+            val result = outputChannel.receive()
+            val moveResult = MoveResult.fromId(result.toInt())!!
+            if (moveResult in setOf(MoveResult.MOVED, MoveResult.MOVED_TO_OXYGEN)) {
+                pos = when(direction) {
+                    Direction.NORTH -> Coord2(pos.x, pos.y - 1)
+                    Direction.SOUTH -> Coord2(pos.x, pos.y + 1)
+                    Direction.WEST -> Coord2(pos.x - 1, pos.y)
+                    Direction.EAST -> Coord2(pos.x + 1, pos.y)
+                }
+            }
+            //println("move=$direction moveResult=$moveResult")
+            moveResult
+        }
+
+    val inputChannel = Channel<Long>()
+    val outputChannel = Channel<Long>()
+    val processor = IntCodeProcessor(inputChannel, outputChannel, intCodes)
+
+    init {
+        GlobalScope.launch {
+            processor.execute()
+        }
+    }
+}
+
+class DummyDroid(start: Coord2, shipString: String) : AbstractDroid(start) {
+    val ship = shipString.lines().map { it.toList() }
+
+    override fun move(direction: Direction): MoveResult {
+        val nextPos = when(direction) {
+            Direction.NORTH -> Coord2(pos.x, pos.y - 1)
+            Direction.SOUTH -> Coord2(pos.x, pos.y + 1)
+            Direction.WEST -> Coord2(pos.x - 1, pos.y)
+            Direction.EAST -> Coord2(pos.x + 1, pos.y)
+        }
+        return when(ship[nextPos.y][nextPos.x]) {
+            '#' -> MoveResult.WALL
+            ' ' -> {
+                pos = nextPos
+                MoveResult.MOVED
+            }
+            'O' -> {
+                pos = nextPos
+                MoveResult.MOVED_TO_OXYGEN
+            }
+            else -> error("Wrong char in map at ${nextPos.x},${nextPos.y}")
+        }
+    }
+}
+
+
+enum class Direction(val id: Int) {
+    NORTH(1), SOUTH(2), WEST(3), EAST(4);
+
+    val undo: Direction
+        get() = when(this) {
+            NORTH -> SOUTH
+            SOUTH -> NORTH
+            WEST -> EAST
+            EAST -> WEST
+        }
+}
+
+enum class MoveResult(val id: Int) {
+    WALL(0), MOVED(1), MOVED_TO_OXYGEN(2);
+
+    companion object {
+        fun fromId(id: Int) = values().find { it.id == id }
+    }
+}
+
 class Day15Spec : Spek({
 
     describe("part 1") {
@@ -160,7 +276,7 @@ class Day15Spec : Spek({
                         """.trimIndent())
                     val path = droid.findOxygen()
                     println(path)
-                    path.size `should equal` 13
+                    path.size `should equal` 15
                 }
             }
 
@@ -191,128 +307,10 @@ class Day15Spec : Spek({
                     val droid = Droid(intCodes)
                     val path = droid.findOxygen()
                     println(path)
-                    path.size `should equal` 10
+                    path.size `should equal` 282
                 }
 
             }
         }
     }
 })
-
-abstract class AbstractDroid(var pos: Coord2) {
-
-    abstract fun move(direction: Direction): MoveResult
-    fun unmove(direction: Direction) = move(direction.undo)
-    fun move(directions: List<Direction>) = directions.forEach { move(it) }
-    fun unmove(directions: List<Direction>) = directions.forEach { unmove(it) }
-
-    fun findOxygen(): List<Direction> {
-        val allPathes = mutableMapOf(pos to emptyList<Direction>())
-        var workingPaths = mapOf(pos to emptyList<Direction>())
-        while(true) {
-            println("workingPaths=$workingPaths")
-            val newPaths = workingPaths.flatMap { posWithPath ->
-                val (_, path) = posWithPath
-                move(path)
-                val moves = Direction.values()
-                val resultPath = moves.mapNotNull { move ->
-                    val result = when(move(move)) {
-                        MoveResult.MOVED_TO_OXYGEN -> return path + move // found oxygen
-                        MoveResult.MOVED -> {
-                            val nextPos = pos
-                            unmove(move)
-                            if (! allPathes.contains(nextPos)) {
-                                nextPos to path + move
-                            } else null // path already known
-                        }
-                        MoveResult.WALL -> null
-                    }
-                    result
-                }
-                unmove(path)
-                resultPath
-            }
-            if (newPaths.isEmpty()) error("Oxygen not found")
-            else {
-                allPathes.putAll(newPaths)
-                workingPaths = newPaths.toMap()
-            }
-        }
-    }
-}
-
-class Droid(intCodes: List<Long>) : AbstractDroid(Coord2(0, 0)) {
-    override fun move(direction: Direction): MoveResult =
-        runBlocking {
-            inputChannel.send(direction.id.toLong())
-            val result = outputChannel.receive()
-            val moveResult = MoveResult.fromId(result.toInt())!!
-            if (moveResult in setOf(MoveResult.MOVED, MoveResult.MOVED_TO_OXYGEN)) {
-                pos = when(direction) {
-                    Direction.NORTH -> Coord2(pos.x, pos.y - 1)
-                    Direction.SOUTH -> Coord2(pos.x, pos.y + 1)
-                    Direction.WEST -> Coord2(pos.x - 1, pos.y)
-                    Direction.EAST -> Coord2(pos.x + 1, pos.y)
-                }
-            }
-            //println("move=$direction moveResult=$moveResult")
-            moveResult
-        }
-
-    val inputChannel = Channel<Long>()
-    val outputChannel = Channel<Long>()
-    val processor = IntCodeProcessor(inputChannel, outputChannel, intCodes)
-
-    init {
-        GlobalScope.launch {
-            processor.execute()
-        }
-    }
-}
-
-class DummyDroid(start: Coord2, shipString: String) : AbstractDroid(start) {
-    val ship = shipString.lines().map { it.toList() }
-
-    override fun move(direction: Direction): MoveResult {
-        val nextPos = when(direction) {
-            Direction.NORTH -> Coord2(pos.x, pos.y - 1)
-            Direction.SOUTH -> Coord2(pos.x, pos.y + 1)
-            Direction.WEST -> Coord2(pos.x - 1, pos.y)
-            Direction.EAST -> Coord2(pos.x + 1, pos.y)
-        }
-        val result = when(ship[nextPos.y][nextPos.x]) {
-            '#' -> MoveResult.WALL
-            ' ' -> {
-                pos = nextPos
-                MoveResult.MOVED
-            }
-            'O' -> {
-                pos = nextPos
-                MoveResult.MOVED_TO_OXYGEN
-            }
-            else -> error("Wrong char in map at ${nextPos.x},${nextPos.y}")
-        }
-        return result
-    }
-}
-
-
-enum class Direction(val id: Int) {
-    NORTH(1), SOUTH(2), WEST(3), EAST(4);
-
-    val undo: Direction
-        get() = when(this) {
-            NORTH -> SOUTH
-            SOUTH -> NORTH
-            WEST -> EAST
-            EAST -> WEST
-        }
-}
-
-enum class MoveResult(val id: Int) {
-    WALL(0), MOVED(1), MOVED_TO_OXYGEN(2);
-
-    companion object {
-        fun fromId(id: Int) = values().find { it.id == id }
-    }
-}
