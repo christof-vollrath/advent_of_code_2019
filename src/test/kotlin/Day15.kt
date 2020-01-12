@@ -8,7 +8,6 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
-import java.time.Year
 import org.jetbrains.spek.data_driven.on as onData
 
 /*
@@ -198,7 +197,8 @@ abstract class AbstractDroid(var pos: Coord2) {
         }
     }
 
-    fun draw(): String {
+    fun draw(): Pair<String, Int> {
+        findOxygen() // Start from Oxygen - droid will be moved to the oxygen generator
         val shipMap = mutableMapOf<Coord2, Char>()
         shipMap[pos] = ' '
         val allPaths = mutableMapOf(pos to emptyList<Direction>())
@@ -209,20 +209,13 @@ abstract class AbstractDroid(var pos: Coord2) {
                 move(path)
                 val moves = Direction.values()
                 val resultPaths = moves.mapNotNull { move ->
-                    val moveResult = move(move)
-                    val result = when(moveResult) {
-                        MoveResult.MOVED_TO_OXYGEN -> {
-                            shipMap[pos] = 'O'
+                    val result = when(val moveResult = move(move)) {
+                        MoveResult.MOVED_TO_OXYGEN, MoveResult.MOVED -> {
+                            val nextPos = pos
+                            shipMap[nextPos] = if (moveResult == MoveResult.MOVED_TO_OXYGEN) 'O' else ' '
                             unmove(move)
-                            if (! allPaths.contains(pos)) {
-                                pos to path + move
-                            } else null // path already known
-                        }
-                        MoveResult.MOVED -> {
-                            shipMap[pos] = ' '
-                            unmove(move)
-                            if (! allPaths.contains(pos)) {
-                                pos to path + move
+                            if (! allPaths.contains(nextPos)) {
+                                nextPos to path + move
                             } else null // path already known
                         }
                         MoveResult.WALL -> {
@@ -241,17 +234,20 @@ abstract class AbstractDroid(var pos: Coord2) {
                 workingPaths = newPaths.toMap()
             }
         }
+        val longestPath = allPaths.values.maxBy { it.size }!!.size
         val maxY = shipMap.keys.maxBy { it.y }!!.y
-        val shipLists = (0..maxY).map { y ->
-            val maxX = shipMap.keys.maxBy { it.x }!!.x
-            (0..maxX).map { x ->
+        val minY = shipMap.keys.minBy { it.y }!!.y
+        val minX = shipMap.keys.minBy { it.x }!!.x
+        val shipLists = (minY..maxY).map { y ->
+            val maxX = shipMap.keys.filter{ it.y == y}.maxBy { it.x }!!.x // maxX per line to avoid filling the line with spaces
+            (minX..maxX).map { x ->
                 shipMap.getOrDefault(Coord2(x, y), ' ')
             }.joinToString("")
         }
-        return shipLists.joinToString("\n")
+        val mapString = shipLists.joinToString("\n")
+        return mapString to longestPath
     }
 
-    fun fillOxygen() = 1
 }
 
 class Droid(intCodes: List<Long>) : AbstractDroid(Coord2(0, 0)) {
@@ -427,39 +423,55 @@ class Day15Spec : Spek({
                     println(path)
                     path.size `should equal` 282
                 }
-
             }
         }
     }
     describe("part 2") {
         describe("draw maps and fill oxygen") {
             val testData = arrayOf(
-                data(DummyDroid(Coord2(1, 1),
-                    """
-                        ####
+                data(
+                    DummyDroid(
+                        Coord2(1, 1),
+                        """
+                         ##
                         # O#
-                        ####
-                    """.trimIndent()), 1
+                         ##
+                    """.trimIndent()
+                    ), 1
                 ),
-                data(DummyDroid(Coord2(2, 1),
-                    """
-                        ###############
+                data(
+                    DummyDroid(
+                        Coord2(2, 1),
+                        """
+                         ####### # ###
                         #       # #  O#
-                        # # # # # # ###
+                        # # # # # # ##
                         #     #       #
-                        ###############
-                    """.trimIndent()), 1)
+                         ##### #######
+                    """.trimIndent()
+                    ), 18
+                )
             )
             onData("ship %s ", with = *testData) { droid, expected ->
+                val (map, oxygenLength) = droid.draw()
                 it("should draw the map") {
-                    droid.draw() `should equal` droid.shipString
+                    map `should equal` droid.shipString
                 }
                 it("should result to $expected") {
-                    droid.fillOxygen() `should equal` 1
+                    oxygenLength `should equal` expected
                 }
             }
 
         }
+        describe("exercise") {
+            val intCodesString = readResource("day15Input.txt")!!
+            val intCodes = parseIntCodes09(intCodesString)
+            it("should fill with oxygen") {
+                val droid = Droid(intCodes)
+                val (_, oxygenLength) = droid.draw()
+                oxygenLength `should equal` 286
+            }
 
+        }
     }
 })
