@@ -132,7 +132,17 @@ what is the eight-digit message embedded in the final output list?
  */
 
 
-fun String.fft(times: Int, phases: Int): String = times(times).fft(phases)
+fun String.fftOptimized(times: Int, phases: Int): String
+{
+    val lcm = lcm(length * times,  phases * basePattern.size)
+    val minimalTimes = lcm / length
+    val multiplier = times / minimalTimes
+    val minimalString = times(minimalTimes)
+    return (0 until phases).fold(minimalString) { accu, phase ->
+        println("phase=$phase accu=$accu")
+        accu.fftOnePhase(multiplier).times(multiplier)
+    }
+}
 
 fun String.fft(phases: Int): String = (0 until phases).fold(this) { accu, phase ->
     println("phase=$phase accu=$accu")
@@ -144,16 +154,18 @@ fun String.times(times: Int): String = if (times == 1) this else
         accu + this
     }
 
-fun String.fftOnePhase() = (0 until length).map { i ->
+fun String.fftOnePhase(multiplier: Int = 1) = (0 until length).map { i ->
     val currentPattern = pattern(i)
     val sum = toList().mapIndexed {row, c ->
         val h = c.toString().toInt()
         h * currentPattern[(row + 1) % currentPattern.size]
-    }.sum()
+    }.sum() * multiplier
     abs(sum) % 10
 }.joinToString("")
 
-fun pattern(i: Int) = listOf(0, 1, 0, -1).flatMap { patternValue -> List(i + 1) { patternValue } }
+val basePattern = listOf(0, 1, 0, -1)
+
+fun pattern(i: Int) = basePattern.flatMap { patternValue -> List(i + 1) { patternValue } }
 
 class Day16Spec : Spek({
 
@@ -179,6 +191,7 @@ class Day16Spec : Spek({
         describe("exercise") {
             it("should calculate fft") {
                 val input = readResource("day16Input.txt")!!
+                println("input.length=${input.length}")
                 input.fft(100).take(8) `should equal` "40580215"
             }
         }
@@ -195,6 +208,50 @@ class Day16Spec : Spek({
                     input.times(times) `should equal` expected
                 }
             }
+        }
+        describe("lcm of pattern and input") {
+            for(i in 1..100) {
+                val inputLength = "03036732577212944063491565474664".length
+                val patternLength = 4 * i
+                println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
+            }
+            for(i in 1..100) {
+                val inputLength = 650
+                val patternLength = 4 * i
+                println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
+            }
+        }
+        describe("fft for repeated strings") {
+            describe("FFT") {
+                val testData = arrayOf(
+                    data("1", 1, 1),
+                    data("1", 2, 1),
+                    data("1", 3, 1),
+                    data("12", 1, 1),
+                    data("12", 2, 1),
+                    data("12", 3, 1),
+                    data("12345678", 1, 1),
+                    data("12345678", 2, 1),
+                    data("12345678", 3, 1),
+                    data("12345678", 1, 2),
+                    data("12345678", 2, 2),
+                    data("12345678", 3, 2),
+                    data("12345678", 1, 3),
+                    data("12345678", 2, 3),
+                    data("12345678", 3, 3),
+                    data("12345678", 1, 4),
+                    data("12345678", 2, 4),
+                    data("12345678", 3, 4)
+                )
+                onData("fft %s repeated %d phase %d ", with = *testData) { input, repeated, phases ->
+                    it("should calculate fft") {
+                        val fftpRepeatedString = input.times(repeated).fft(phases)
+                        val fftpOptimized = input.fftOptimized(repeated, phases)
+                        fftpRepeatedString `should equal` fftpOptimized
+                    }
+                }
+            }
+
         }
         /*
         describe("decode") {
