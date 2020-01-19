@@ -145,7 +145,6 @@ fun String.fftOptimized(times: Int, phases: Int): String
 }
 
 fun String.fft(phases: Int): String = (0 until phases).fold(this) { accu, phase ->
-    println("phase=$phase accu=$accu")
     accu.fftOnePhase()
 }
 
@@ -154,18 +153,26 @@ fun String.times(times: Int): String = if (times == 1) this else
         accu + this
     }
 
-fun String.fftOnePhase(multiplier: Int = 1) = (0 until length).map { i ->
-    val currentPattern = pattern(i)
+fun String.fftOnePhase(multiplier: Int = 1) = (0 until length).map { column ->
+/*
     val sum = toList().mapIndexed {row, c ->
         val h = c.toString().toInt()
-        h * currentPattern[(row + 1) % currentPattern.size]
-    }.sum() * multiplier
-    abs(sum) % 10
+        h * patternFactor(row, column)
+    }.sum()
+*/ // Here optimized to run four times faster:
+    var sum = 0
+    for (i in 0 until length) {
+        val c = get(i)
+        val h = c - '0'
+        sum += h * patternFactor(i, column)
+    }
+    abs(sum * multiplier) % 10
 }.joinToString("")
 
-val basePattern = listOf(0, 1, 0, -1)
+fun patternFactor(row: Int, column: Int) =
+    basePattern[((row + 1) / (column + 1)) % basePattern.size]
 
-fun pattern(i: Int) = basePattern.flatMap { patternValue -> List(i + 1) { patternValue } }
+val basePattern = listOf(0, 1, 0, -1)
 
 class Day16Spec : Spek({
 
@@ -210,18 +217,21 @@ class Day16Spec : Spek({
             }
         }
         describe("lcm of pattern and input") {
-            for(i in 1..100) {
-                val inputLength = "03036732577212944063491565474664".length
-                val patternLength = 4 * i
-                println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
-            }
-            for(i in 1..100) {
-                val inputLength = 650
-                val patternLength = 4 * i
-                println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
+            it ("should calulate repeatable length") {
+                for(i in 1..100) {
+                    val inputLength = "03036732577212944063491565474664".length
+                    val patternLength = 4 * i
+                    println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
+                }
+                for(i in 1..100) {
+                    val inputLength = 650
+                    val patternLength = 4 * i
+                    println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
+                }
             }
         }
-        describe("fft for repeated strings") {
+        /*
+        describe("fft optimized for repeated strings") {
             describe("FFT") {
                 val testData = arrayOf(
                     data("1", 1, 1),
@@ -253,7 +263,8 @@ class Day16Spec : Spek({
             }
 
         }
-        /*
+
+         */
         describe("decode") {
             val testData = arrayOf(
                 data("03036732577212944063491565474664", 100, "84462026"),
@@ -262,12 +273,16 @@ class Day16Spec : Spek({
             )
             onData("decode %s phases %d ", with = *testData) { input, phases, expected ->
                 it("should decode") {
-                    input.fft(10000, phases).take(8) `should equal` expected
+                    val fftResult = input.times(10000).fft(phases)
+                    val offsetString = fftResult.take(7)
+                    val offsetInt = offsetString.toInt()
+                    println("offset=$offsetInt")
+                    val result = fftResult.drop(offsetInt).take(8)
+                    println("result=$result")
+                    result `should equal` expected
                 }
             }
         }
-
-         */
     }
 })
 
