@@ -1,6 +1,8 @@
 import org.amshove.kluent.`should equal`
+import org.amshove.kluent.`should not equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
 import kotlin.math.abs
@@ -134,10 +136,12 @@ what is the eight-digit message embedded in the final output list?
 
 fun String.fftOptimized(times: Int, phases: Int): String
 {
-    val lcm = lcm(length * times,  phases * basePattern.size)
+    val lcm = lcm(length,  phases * basePattern.size)
+    if (lcm > length * times) error("Can not optimze")
     val minimalTimes = lcm / length
     val multiplier = times / minimalTimes
     val minimalString = times(minimalTimes)
+    println("length=$length times=$times phases=$phases lcm=$lcm minimalTimes=$minimalTimes multiplier=$multiplier minimalString=$minimalString")
     return (0 until phases).fold(minimalString) { accu, phase ->
         println("phase=$phase accu=$accu")
         accu.fftOnePhase(multiplier).times(multiplier)
@@ -145,6 +149,7 @@ fun String.fftOptimized(times: Int, phases: Int): String
 }
 
 fun String.fft(phases: Int): String = (0 until phases).fold(this) { accu, phase ->
+    println("phase=$phase accu=$accu")
     accu.fftOnePhase()
 }
 
@@ -173,6 +178,8 @@ fun patternFactor(row: Int, column: Int) =
     basePattern[((row + 1) / (column + 1)) % basePattern.size]
 
 val basePattern = listOf(0, 1, 0, -1)
+
+fun pattern(i: Int) = basePattern.flatMap { patternValue -> List(i + 1) { patternValue } }
 
 class Day16Spec : Spek({
 
@@ -216,6 +223,32 @@ class Day16Spec : Spek({
                 }
             }
         }
+        describe("can we use a list as a hash key") {
+            it("should calculate a different hash key when the list changes") {
+                val list = mutableListOf(1, 2)
+                val key1 = list.hashCode()
+                list.add(3)
+                val key2 = list.hashCode()
+                println("key1=$key1 key2=$key2")
+                key1 `should not equal` key2
+            }
+        }
+        describe("can we calculate patterns for large inputs") {
+            val largePattern = pattern(650*10000)
+            println(largePattern)
+        }
+
+        describe("what happens when an input of the same length as the pattern is duplicated") {
+            given("given input with the lenght of the base pattern") {
+                val input = "1234"
+                it("should calculate fft with phase 1") {
+                    input.fft(1) `should equal` "2574"
+                }
+                it("should calculate fft with phase 1 for doubled input") {
+                    (input+input).fft(1) `should equal` "40800974"
+                }
+            }
+        }
         describe("lcm of pattern and input") {
             it ("should calulate repeatable length") {
                 for(i in 1..100) {
@@ -230,41 +263,29 @@ class Day16Spec : Spek({
                 }
             }
         }
-        /*
-        describe("fft optimized for repeated strings") {
+        describe("fft for repeated strings") {
             describe("FFT") {
                 val testData = arrayOf(
-                    data("1", 1, 1),
-                    data("1", 2, 1),
-                    data("1", 3, 1),
-                    data("12", 1, 1),
-                    data("12", 2, 1),
-                    data("12", 3, 1),
-                    data("12345678", 1, 1),
-                    data("12345678", 2, 1),
-                    data("12345678", 3, 1),
-                    data("12345678", 1, 2),
-                    data("12345678", 2, 2),
+                    data("12345678", 3, 1)//,
+                    /*
                     data("12345678", 3, 2),
-                    data("12345678", 1, 3),
-                    data("12345678", 2, 3),
                     data("12345678", 3, 3),
-                    data("12345678", 1, 4),
+                    data("12345678", 10, 4),
                     data("12345678", 2, 4),
-                    data("12345678", 3, 4)
+                    data("12345678", 80, 4)
+                     */
                 )
                 onData("fft %s repeated %d phase %d ", with = *testData) { input, repeated, phases ->
                     it("should calculate fft") {
                         val fftpRepeatedString = input.times(repeated).fft(phases)
                         val fftpOptimized = input.fftOptimized(repeated, phases)
-                        fftpRepeatedString `should equal` fftpOptimized
+                        fftpOptimized `should equal` fftpRepeatedString
                     }
                 }
             }
 
         }
-
-         */
+        /*
         describe("decode") {
             val testData = arrayOf(
                 data("03036732577212944063491565474664", 100, "84462026"),
@@ -280,9 +301,11 @@ class Day16Spec : Spek({
                     val result = fftResult.drop(offsetInt).take(8)
                     println("result=$result")
                     result `should equal` expected
+                    input.fftOptimized(10000, phases).take(8) `should equal` expected
                 }
             }
         }
+        */
     }
 })
 
