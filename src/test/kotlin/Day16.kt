@@ -134,10 +134,18 @@ what is the eight-digit message embedded in the final output list?
  */
 
 
-fun String.fftOptimized(times: Int, phases: Int): String
+fun String.fftOptimized(times: Int, phases: Int): String = (0 until phases).fold(times(times)) { accu, phase ->
+    println("phase=$phase accu.length=${accu.length}")
+    accu.fftOnePhase()
+}
+
+/* TODO
+fun String.fftOnePhaseOptimized(times: Int): String
 {
-    val lcm = lcm(length,  phases * basePattern.size)
-    if (lcm > length * times) error("Can not optimze")
+    val lcm = lcm(length,  times * basePattern.size)
+    if (lcm > length * times) {
+        println("Cannot optimize times=$times length=$length")
+    }
     val minimalTimes = lcm / length
     val multiplier = times / minimalTimes
     val minimalString = times(minimalTimes)
@@ -147,9 +155,10 @@ fun String.fftOptimized(times: Int, phases: Int): String
         accu.fftOnePhase(multiplier).times(multiplier)
     }
 }
+*/
 
 fun String.fft(phases: Int): String = (0 until phases).fold(this) { accu, phase ->
-    println("phase=$phase accu=$accu")
+    println("phase=$phase accu.length=${accu.length}")
     accu.fftOnePhase()
 }
 
@@ -158,21 +167,27 @@ fun String.times(times: Int): String = if (times == 1) this else
         accu + this
     }
 
-fun String.fftOnePhase(multiplier: Int = 1) = (0 until length).map { column ->
-/*
-    val sum = toList().mapIndexed {row, c ->
-        val h = c.toString().toInt()
-        h * patternFactor(row, column)
-    }.sum()
-*/ // Here optimized to run four times faster:
+fun String.fftOnePhase() = (0 until length).map { column ->
+    /*
+        val sum = toList().mapIndexed {row, c ->
+            val h = c.toString().toInt()
+            h * patternFactor(row, column)
+        }.sum()
+    */ // Here optimized to run four times faster:
     var sum = 0
     for (i in 0 until length) {
-        val c = get(i)
-        val h = c - '0'
-        sum += h * patternFactor(i, column)
+        sum += fftOneStep(i, column)
     }
-    abs(sum * multiplier) % 10
+    abs(sum) % 10
 }.joinToString("")
+
+private fun String.fftOneStep(row: Int, column: Int): Int {
+    var sum1 = 0
+    val c = get(row)
+    val h = c - '0'
+    sum1 += h * patternFactor(row, column)
+    return sum1
+}
 
 fun patternFactor(row: Int, column: Int) =
     basePattern[((row + 1) / (column + 1)) % basePattern.size]
@@ -232,10 +247,6 @@ class Day16Spec : Spek({
                 println("key1=$key1 key2=$key2")
                 key1 `should not equal` key2
             }
-        }
-        describe("can we calculate patterns for large inputs") {
-            val largePattern = pattern(650*10000)
-            println(largePattern)
         }
 
         describe("what happens when an input of the same length as the pattern is duplicated") {
