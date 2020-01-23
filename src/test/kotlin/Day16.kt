@@ -5,6 +5,7 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
+import java.lang.StringBuilder
 import kotlin.math.abs
 import org.jetbrains.spek.data_driven.on as onData
 
@@ -133,30 +134,6 @@ what is the eight-digit message embedded in the final output list?
 
  */
 
-
-fun String.fftOptimized(times: Int, phases: Int): String = (0 until phases).fold(times(times)) { accu, phase ->
-    println("phase=$phase accu.length=${accu.length}")
-    accu.fftOnePhase()
-}
-
-/* TODO
-fun String.fftOnePhaseOptimized(times: Int): String
-{
-    val lcm = lcm(length,  times * basePattern.size)
-    if (lcm > length * times) {
-        println("Cannot optimize times=$times length=$length")
-    }
-    val minimalTimes = lcm / length
-    val multiplier = times / minimalTimes
-    val minimalString = times(minimalTimes)
-    println("length=$length times=$times phases=$phases lcm=$lcm minimalTimes=$minimalTimes multiplier=$multiplier minimalString=$minimalString")
-    return (0 until phases).fold(minimalString) { accu, phase ->
-        println("phase=$phase accu=$accu")
-        accu.fftOnePhase(multiplier).times(multiplier)
-    }
-}
-*/
-
 fun String.fft(phases: Int): String = (0 until phases).fold(this) { accu, phase ->
     println("phase=$phase accu.length=${accu.length}")
     accu.fftOnePhase()
@@ -182,17 +159,75 @@ fun String.fftOnePhase() = (0 until length).map { column ->
 }.joinToString("")
 
 private fun String.fftOneStep(row: Int, column: Int): Int {
-    var sum1 = 0
     val c = get(row)
     val h = c - '0'
-    sum1 += h * patternFactor(row, column)
-    return sum1
+    return h * patternFactor(row, column)
+}
+
+/**
+ * Try optimization with StringBuilder which improve speed by less than 10%
+ */
+fun String.fft2(phases: Int): String {
+    var curr = StringBuilder(this)
+    for (phase in 0 until phases) {
+        val next = StringBuilder(curr.length)
+        for (column in 0 until curr.length) {
+            var sum = 0
+            for (row in 0 until length) {
+                val c = curr[row]
+                val h = c - '0'
+                sum +=  h * patternFactor(row, column)
+            }
+            next.append('0'.plus(abs(sum) % 10))
+        }
+        curr = next
+    }
+    return curr.toString()
 }
 
 fun patternFactor(row: Int, column: Int) =
     basePattern[((row + 1) / (column + 1)) % basePattern.size]
 
 val basePattern = listOf(0, 1, 0, -1)
+/**
+ * Hard coding the pattern 0 1 0 -1 speeds up nearly 10 times - but still too slow
+ */
+fun String.fft3(phases: Int): String {
+    var curr = StringBuilder(this)
+    for (phase in 0 until phases) {
+        println("phase=$phase curr.length=${curr.length}")
+        val next = StringBuilder(curr.length)
+        for (resultColumn in 0 until curr.length) {
+            var sum = 0
+            var row = 0
+            row += resultColumn // first 0 and skipping first char
+            do {
+                var h1 = 0
+                do { // 1
+                    val c = curr[row]
+                    val cInt = c - '0'
+                    sum += cInt
+                    h1++
+                    row++
+                } while (h1 < resultColumn + 1 && row < curr.length)
+                row += resultColumn + 1 // second 0
+                if (row >= curr.length) break
+                var h2 = 0
+                do { // 1
+                    val c = curr[row]
+                    val cInt = c - '0'
+                    sum -= cInt
+                    h2++
+                    row++
+                } while (h2 < resultColumn + 1 && row < curr.length)
+                row += resultColumn + 1 // first 0 again
+            } while (row < curr.length)
+            next.append('0'.plus(abs(sum) % 10))
+        }
+        curr = next
+    }
+    return curr.toString()
+}
 
 fun pattern(i: Int) = basePattern.flatMap { patternValue -> List(i + 1) { patternValue } }
 
@@ -203,6 +238,7 @@ class Day16Spec : Spek({
             val testData = arrayOf(
                 data("1", 1, "1"),
                 data("12", 1, "12"),
+                data("1234", 1, "2574"),
                 data("12345678", 1, "48226158"),
                 data("12345678", 2, "34040438"),
                 data("12345678", 3, "03415518"),
@@ -274,22 +310,27 @@ class Day16Spec : Spek({
                 }
             }
         }
-        describe("fft for repeated strings") {
+        describe("fft for repeated strings with improved performance - but still not enough") {
             describe("FFT") {
                 val testData = arrayOf(
-                    data("12345678", 3, 1)//,
-                    /*
+                    data("1", 1, 1),
+                    data("12", 1, 1),
+                    data("123", 1, 1),
+                    data("1", 1, 2),
+                    data("12", 1, 2),
+                    data("123", 1, 2),
+                    data("12345678", 3, 1),
                     data("12345678", 3, 2),
                     data("12345678", 3, 3),
                     data("12345678", 10, 4),
                     data("12345678", 2, 4),
-                    data("12345678", 80, 4)
-                     */
+                    data("12345678", 80, 10),
+                    data("12345678", 100, 20)
                 )
                 onData("fft %s repeated %d phase %d ", with = *testData) { input, repeated, phases ->
                     it("should calculate fft") {
-                        val fftpRepeatedString = input.times(repeated).fft(phases)
-                        val fftpOptimized = input.fftOptimized(repeated, phases)
+                        val fftpRepeatedString = input.times(repeated).fft2(phases)
+                        val fftpOptimized = input.times(repeated).fft3(phases)
                         fftpOptimized `should equal` fftpRepeatedString
                     }
                 }
@@ -299,13 +340,13 @@ class Day16Spec : Spek({
         /*
         describe("decode") {
             val testData = arrayOf(
-                data("03036732577212944063491565474664", 100, "84462026"),
+                data("03036732577212944063491565474664", 100, "84462026")/*,
                 data("02935109699940807407585447034323", 100, "78725270"),
-                data("03081770884921959731165446850517", 100, "53553731")
+                data("03081770884921959731165446850517", 100, "53553731")*/
             )
             onData("decode %s phases %d ", with = *testData) { input, phases, expected ->
                 it("should decode") {
-                    val fftResult = input.times(10000).fft(phases)
+                    val fftResult = input.times(10000).fft3(phases)
                     val offsetString = fftResult.take(7)
                     val offsetInt = offsetString.toInt()
                     println("offset=$offsetInt")
@@ -316,7 +357,8 @@ class Day16Spec : Spek({
                 }
             }
         }
-        */
+
+         */
     }
 })
 
