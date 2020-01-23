@@ -189,6 +189,7 @@ fun patternFactor(row: Int, column: Int) =
     basePattern[((row + 1) / (column + 1)) % basePattern.size]
 
 val basePattern = listOf(0, 1, 0, -1)
+
 /**
  * Hard coding the pattern 0 1 0 -1 speeds up nearly 10 times - but still too slow
  */
@@ -274,69 +275,64 @@ class Day16Spec : Spek({
                 }
             }
         }
-        describe("can we use a list as a hash key") {
-            it("should calculate a different hash key when the list changes") {
-                val list = mutableListOf(1, 2)
-                val key1 = list.hashCode()
-                list.add(3)
-                val key2 = list.hashCode()
-                println("key1=$key1 key2=$key2")
-                key1 `should not equal` key2
-            }
-        }
-
-        describe("what happens when an input of the same length as the pattern is duplicated") {
-            given("given input with the lenght of the base pattern") {
-                val input = "1234"
-                it("should calculate fft with phase 1") {
-                    input.fft(1) `should equal` "2574"
-                }
-                it("should calculate fft with phase 1 for doubled input") {
-                    (input+input).fft(1) `should equal` "40800974"
-                }
-            }
-        }
-        describe("lcm of pattern and input") {
-            it ("should calulate repeatable length") {
-                for(i in 1..100) {
-                    val inputLength = "03036732577212944063491565474664".length
-                    val patternLength = 4 * i
-                    println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
-                }
-                for(i in 1..100) {
-                    val inputLength = 650
-                    val patternLength = 4 * i
-                    println("i=$i inputLength=${inputLength} patternLength=${patternLength} lcm(inputLength, patternLength)=${lcm(inputLength, patternLength)}")
+        describe("FFT optimization 3 and 2") {
+            val testData = arrayOf(
+                data("1", 1, 1),
+                data("12", 1, 1),
+                data("123", 1, 1),
+                data("1", 1, 2),
+                data("12", 1, 2),
+                data("123", 1, 2),
+                data("12345678", 3, 1),
+                data("12345678", 3, 2),
+                data("12345678", 3, 3),
+                data("12345678", 10, 4),
+                data("12345678", 2, 4),
+                data("12345678", 80, 10),
+                data("12345678", 100, 20)
+            )
+            onData("fft 2, 3 %s repeated %d phase %d ", with = *testData) { input, repeated, phases ->
+                it("should calculate fft") {
+                    val fftResult = input.times(repeated).fft(phases)
+                    val fftResult2 = input.times(repeated).fft2(phases)
+                    val fftResult3 = input.times(repeated).fft3(phases)
+                    fftResult `should equal` fftResult2
+                    fftResult `should equal` fftResult3
                 }
             }
         }
-        describe("fft for repeated strings with improved performance - but still not enough") {
-            describe("FFT") {
-                val testData = arrayOf(
-                    data("1", 1, 1),
-                    data("12", 1, 1),
-                    data("123", 1, 1),
-                    data("1", 1, 2),
-                    data("12", 1, 2),
-                    data("123", 1, 2),
-                    data("12345678", 3, 1),
-                    data("12345678", 3, 2),
-                    data("12345678", 3, 3),
-                    data("12345678", 10, 4),
-                    data("12345678", 2, 4),
-                    data("12345678", 80, 10),
-                    data("12345678", 100, 20)
+        describe("FFT for repeated patterns and phases") {
+            val testData = arrayOf(
+                data("1234", 1, 1, "2574"),
+                data("1234", 1, 2, "5214"),
+                data("1234", 1, 3, "4354"),
+                data("1234", 1, 4, "1894"),
+                data("1234", 1, 5, "8734"),
+                data("1234", 2, 1, "40800974"),
+                data("1234", 2, 2, "18860014"),
+                data("1234", 2, 3, "85475554"),
+                data("1234", 2, 4, "41629494"),
+                data("1234", 3, 1, "652615740974"),
+                data("1234", 3, 2, "917572140014"),
+                data("1234", 3, 3, "768148095554"),
+                data("1234", 3, 4, "362962889494"),
+                data("1234", 3, 5, "115130246734"),
+                data("1234", 4, 1, "8090458009740974"),
+                data("1234", 4, 2, "9483698600140014"),
+                data("1234", 4, 3, "3511449200095554"),
+                data("1234", 5, 1, "05042680157409740974"),
+                data("1234", 6, 1, "204020861580097409740974"),
+                data("1234", 7, 1, "4516802645801574097409740974"),
+                data("1234", 8, 1, "60209920468015800974097409740974")
                 )
-                onData("fft %s repeated %d phase %d ", with = *testData) { input, repeated, phases ->
-                    it("should calculate fft") {
-                        val fftpRepeatedString = input.times(repeated).fft2(phases)
-                        val fftpOptimized = input.times(repeated).fft3(phases)
-                        fftpOptimized `should equal` fftpRepeatedString
-                    }
+            onData("fft %s repeated %d phase %d ", with = *testData) { input, repeated, phases, expected ->
+                it("should calculate fft") {
+                    val fftResult = input.times(repeated).fft(phases)
+                    fftResult `should equal` expected
                 }
             }
-
         }
+
         /*
         describe("decode") {
             val testData = arrayOf(
