@@ -134,9 +134,9 @@ what is the eight-digit message embedded in the final output list?
 
  */
 
-fun String.fft(phases: Int): String = (0 until phases).fold(this) { accu, phase ->
+fun String.fft(phases: Int, pattern: List<Int> = basePattern): String = (0 until phases).fold(this) { accu, phase ->
     println("phase=$phase accu.length=${accu.length}")
-    accu.fftOnePhase()
+    accu.fftOnePhase(pattern)
 }
 
 fun String.times(times: Int): String = if (times == 1) this else
@@ -144,7 +144,7 @@ fun String.times(times: Int): String = if (times == 1) this else
         accu + this
     }
 
-fun String.fftOnePhase() = (0 until length).map { column ->
+fun String.fftOnePhase(pattern: List<Int>) = (0 until length).map { column ->
     /*
         val sum = toList().mapIndexed {row, c ->
             val h = c.toString().toInt()
@@ -153,21 +153,21 @@ fun String.fftOnePhase() = (0 until length).map { column ->
     */ // Here optimized to run four times faster:
     var sum = 0
     for (i in 0 until length) {
-        sum += fftOneStep(i, column)
+        sum += fftOneStep(i, column, pattern)
     }
     abs(sum) % 10
 }.joinToString("")
 
-private fun String.fftOneStep(row: Int, column: Int): Int {
+private fun String.fftOneStep(row: Int, column: Int, pattern: List<Int>): Int {
     val c = get(row)
     val h = c - '0'
-    return h * patternFactor(row, column)
+    return h * patternFactor(row, column, pattern)
 }
 
 /**
  * Try optimization with StringBuilder which improve speed by less than 10%
  */
-fun String.fft2(phases: Int): String {
+fun String.fft2(phases: Int, pattern: List<Int> = basePattern): String {
     var curr = StringBuilder(this)
     for (phase in 0 until phases) {
         val next = StringBuilder(curr.length)
@@ -176,7 +176,7 @@ fun String.fft2(phases: Int): String {
             for (row in 0 until length) {
                 val c = curr[row]
                 val h = c - '0'
-                sum +=  h * patternFactor(row, column)
+                sum +=  h * patternFactor(row, column, pattern)
             }
             next.append('0'.plus(abs(sum) % 10))
         }
@@ -185,8 +185,8 @@ fun String.fft2(phases: Int): String {
     return curr.toString()
 }
 
-fun patternFactor(row: Int, column: Int) =
-    basePattern[((row + 1) / (column + 1)) % basePattern.size]
+fun patternFactor(row: Int, column: Int, pattern: List<Int>) =
+    pattern[((row + 1) / (column + 1)) % pattern.size]
 
 val basePattern = listOf(0, 1, 0, -1)
 
@@ -301,6 +301,21 @@ class Day16Spec : Spek({
                 }
             }
         }
+        describe("playing with the principle of real fft (Fast Fourier Transformation") {
+            // See https://en.wikipedia.org/wiki/Fast_Fourier_transform
+            val testData = arrayOf(
+                data("12345678", "48226158"),
+                data("1357", "4827"),
+                data("2468", "4048")
+            )
+            onData("fft %s with fixed phase 1 ", with = *testData) { input, expected ->
+                it("should calculate fft") {
+                    input.fft(1) `should equal` expected
+                }
+            }
+
+        }
+
         describe("FFT for repeated patterns and phases") {
             val testData = arrayOf(
                 data("1234", 1, 1, "2574"),
@@ -323,7 +338,12 @@ class Day16Spec : Spek({
                 data("1234", 5, 1, "05042680157409740974"),
                 data("1234", 6, 1, "204020861580097409740974"),
                 data("1234", 7, 1, "4516802645801574097409740974"),
-                data("1234", 8, 1, "60209920468015800974097409740974")
+                data("1234", 8, 1, "60209920468015800974097409740974"),
+                data("1234", 8, 2, "88460358142049860014001400140014"),
+                data("1234", 8, 3, "07177286494374920009555400095554"),
+                data("1234", 8, 4, "42810328443903346666727288889494"),
+                data("1234", 8, 10, "33542686510901240042406608146234"),
+                data("1234", 8, 100, "64612924623967346284123462841234")
                 )
             onData("fft %s repeated %d phase %d ", with = *testData) { input, repeated, phases, expected ->
                 it("should calculate fft") {
@@ -332,11 +352,11 @@ class Day16Spec : Spek({
                 }
             }
         }
-
-        /*
+/*
         describe("decode") {
             val testData = arrayOf(
-                data("03036732577212944063491565474664", 100, "84462026")/*,
+                data("03036732577212944063491565474664", 1, "84462026")/*,
+                data("03036732577212944063491565474664", 100, "84462026"),
                 data("02935109699940807407585447034323", 100, "78725270"),
                 data("03081770884921959731165446850517", 100, "53553731")*/
             )
@@ -349,12 +369,10 @@ class Day16Spec : Spek({
                     val result = fftResult.drop(offsetInt).take(8)
                     println("result=$result")
                     result `should equal` expected
-                    input.fftOptimized(10000, phases).take(8) `should equal` expected
                 }
             }
         }
-
-         */
+ */
     }
 })
 
