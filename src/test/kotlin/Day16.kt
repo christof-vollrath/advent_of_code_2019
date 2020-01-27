@@ -1,5 +1,4 @@
 import org.amshove.kluent.`should equal`
-import org.amshove.kluent.`should not equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
@@ -318,6 +317,13 @@ class Day16Spec : Spek({
 
         describe("FFT for repeated patterns and phases") {
             val testData = arrayOf(
+                data("1111", 1, 1, "0221"),
+                data("1111", 2, 1, "00344321"),
+                data("1111", 3, 1, "020356654321"),
+                data("1111", 4, 1, "0020367887654321"),
+                data("1111", 1, 2, "2431"),
+                data("1111", 1, 3, "1741"),
+                data("1111", 1, 4, "3151"),
                 data("1234", 1, 1, "2574"),
                 data("1234", 1, 2, "5214"),
                 data("1234", 1, 3, "4354"),
@@ -349,6 +355,25 @@ class Day16Spec : Spek({
                 it("should calculate fft") {
                     val fftResult = input.times(repeated).fft(phases)
                     fftResult `should equal` expected
+                }
+            }
+        }
+
+        describe("exploring the data") {
+            given("example") {
+                val example = "03036732577212944063491565474664"
+                it("should calculate the offset") {
+                    val offset = example.take(7).toInt()
+                    val totalLength = example.length * 10_000
+                    println("offset=$offset totalLength=$totalLength relative=${offset.toDouble()/totalLength}")
+                }
+            }
+            given("exercise") {
+                val input = readResource("day16Input.txt")!!
+                it("should calculate the offset") {
+                    val offset = input.take(7).toInt()
+                    val totalLength = input.length * 10_000
+                    println("offset=$offset totalLength=$totalLength relative=${offset.toDouble()/totalLength}")
                 }
             }
         }
