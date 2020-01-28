@@ -134,7 +134,6 @@ what is the eight-digit message embedded in the final output list?
  */
 
 fun String.fft(phases: Int, pattern: List<Int> = basePattern): String = (0 until phases).fold(this) { accu, phase ->
-    println("phase=$phase accu.length=${accu.length}")
     accu.fftOnePhase(pattern)
 }
 
@@ -195,7 +194,6 @@ val basePattern = listOf(0, 1, 0, -1)
 fun String.fft3(phases: Int): String {
     var curr = StringBuilder(this)
     for (phase in 0 until phases) {
-        println("phase=$phase curr.length=${curr.length}")
         val next = StringBuilder(curr.length)
         for (resultColumn in 0 until curr.length) {
             var sum = 0
@@ -229,11 +227,15 @@ fun String.fft3(phases: Int): String {
     return curr.toString()
 }
 
+/**
+ * The upper half of fft is easily calculated since it contains only a block of zeroes fallowed by a block of ones
+ * (thats the first zero and the first one repeated)
+ */
 fun String.fftUpperHalf(phases: Int): String = (0 until phases).fold(this.drop(length / 2)) { accu, phase ->
     accu.fftUpperHalfOnePhase()
 }
 
-private fun String.fftUpperHalfOnePhase(): String {
+fun String.fftUpperHalfOnePhase(): String {
     var sum = 0
     return (length-1 downTo  0).map {
         sum = (sum + (this[it] - '0')) % 10
@@ -241,7 +243,15 @@ private fun String.fftUpperHalfOnePhase(): String {
     }.reversed().joinToString("")
 }
 
-fun pattern(i: Int) = basePattern.flatMap { patternValue -> List(i + 1) { patternValue } }
+fun decodeMessage(input: String, phases: Int): String {
+    val offsetString = input.take(7)
+    val offsetInt = offsetString.toInt()
+    val fftResult = input.times(10_000).fftUpperHalf(phases)
+    val correctedOffset = offsetInt - input.length / 2 * 10_000
+    if (correctedOffset < 0) error("Offset to small to calculate optimized fft")
+    val result = fftResult.drop(correctedOffset).take(8)
+    return result
+}
 
 class Day16Spec : Spek({
 
@@ -268,7 +278,6 @@ class Day16Spec : Spek({
         describe("exercise") {
             it("should calculate fft") {
                 val input = readResource("day16Input.txt")!!
-                println("input.length=${input.length}")
                 input.fft(100).take(8) `should equal` "40580215"
             }
         }
@@ -312,20 +321,6 @@ class Day16Spec : Spek({
                 }
             }
         }
-        describe("playing with the principle of real fft (Fast Fourier Transformation") {
-            // See https://en.wikipedia.org/wiki/Fast_Fourier_transform
-            val testData = arrayOf(
-                data("12345678", "48226158"),
-                data("1357", "4827"),
-                data("2468", "4048")
-            )
-            onData("fft %s with fixed phase 1 ", with = *testData) { input, expected ->
-                it("should calculate fft") {
-                    input.fft(1) `should equal` expected
-                }
-            }
-
-        }
 
         describe("FFT for repeated patterns and phases") {
             val testData = arrayOf(
@@ -365,7 +360,7 @@ class Day16Spec : Spek({
                 )
             onData("fft %s repeated %d phase %d ", with = *testData) { input, repeated, phases, expected ->
                 it("should calculate fft") {
-                    val fftResult = input.times(repeated).fft(phases)
+                    val fftResult = input.times(repeated).fft3(phases)
                     fftResult `should equal` expected
                 }
             }
@@ -374,10 +369,9 @@ class Day16Spec : Spek({
         describe("fft for the last half of input is very simple") {
             given("an input and its correct fft") {
                 val input = "1234".times(8)
-                val fft1 = input.fft(1)
-                val fft8 = input.fft(8)
+                val fft1 = input.fft3(1)
+                val fft8 = input.fft3(8)
                 val halfLength = input.length / 2
-                println("input=$input")
                 it("should calculate upper half for phase 1") {
                     input.fftUpperHalf(1) `should equal` fft1.drop(halfLength)
                 }
@@ -415,14 +409,7 @@ class Day16Spec : Spek({
             )
             onData("decode %s phases %d ", with = *testData) { input, phases, expected ->
                 it("should decode") {
-                    val offsetString = input.take(7)
-                    val offsetInt = offsetString.toInt()
-                    println("offset=$offsetInt")
-                    val fftResult = input.times(10_000).fftUpperHalf(phases)
-                    val correctedOffset = offsetInt - input.length / 2 * 10_000
-                    println("correctedOffset=$correctedOffset")
-                    val result = fftResult.drop(correctedOffset).take(8)
-                    println("result=$result")
+                    val result = decodeMessage(input, phases)
                     result `should equal` expected
                 }
             }
@@ -430,20 +417,13 @@ class Day16Spec : Spek({
         describe("exercise") {
             it("should calculate fft") {
                 val input = readResource("day16Input.txt")!!
-                println("input.length=${input.length}")
-                val offsetString = input.take(7)
-                val offsetInt = offsetString.toInt()
-                println("offset=$offsetInt")
-                val fftResult = input.times(10_000).fftUpperHalf(100)
-                val correctedOffset = offsetInt - input.length / 2 * 10_000
-                println("correctedOffset=$correctedOffset")
-                val result = fftResult.drop(correctedOffset).take(8)
-                println("result=$result")
+                val result = decodeMessage(input, 100)
                 result `should equal` "22621597"
             }
         }
 
     }
 })
+
 
 
