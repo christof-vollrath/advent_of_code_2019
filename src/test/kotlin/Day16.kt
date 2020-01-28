@@ -229,6 +229,18 @@ fun String.fft3(phases: Int): String {
     return curr.toString()
 }
 
+fun String.fftUpperHalf(phases: Int): String = (0 until phases).fold(this.drop(length / 2)) { accu, phase ->
+    accu.fftUpperHalfOnePhase()
+}
+
+private fun String.fftUpperHalfOnePhase(): String {
+    var sum = 0
+    return (length-1 downTo  0).map {
+        sum = (sum + (this[it] - '0')) % 10
+        sum
+    }.reversed().joinToString("")
+}
+
 fun pattern(i: Int) = basePattern.flatMap { patternValue -> List(i + 1) { patternValue } }
 
 class Day16Spec : Spek({
@@ -359,6 +371,23 @@ class Day16Spec : Spek({
             }
         }
 
+        describe("fft for the last half of input is very simple") {
+            given("an input and its correct fft") {
+                val input = "1234".times(8)
+                val fft1 = input.fft(1)
+                val fft8 = input.fft(8)
+                val halfLength = input.length / 2
+                println("input=$input")
+                it("should calculate upper half for phase 1") {
+                    input.fftUpperHalf(1) `should equal` fft1.drop(halfLength)
+                }
+                it("should calculate upper half for phase 8") {
+                    input.fftUpperHalf(8) `should equal` fft8.drop(halfLength)
+                }
+
+            }
+        }
+
         describe("exploring the data") {
             given("example") {
                 val example = "03036732577212944063491565474664"
@@ -377,27 +406,43 @@ class Day16Spec : Spek({
                 }
             }
         }
-/*
         describe("decode") {
             val testData = arrayOf(
-                data("03036732577212944063491565474664", 1, "84462026")/*,
+                data("03036732577212944063491565474664", 100, "84462026"),
                 data("03036732577212944063491565474664", 100, "84462026"),
                 data("02935109699940807407585447034323", 100, "78725270"),
-                data("03081770884921959731165446850517", 100, "53553731")*/
+                data("03081770884921959731165446850517", 100, "53553731")
             )
             onData("decode %s phases %d ", with = *testData) { input, phases, expected ->
                 it("should decode") {
-                    val fftResult = input.times(10000).fft3(phases)
-                    val offsetString = fftResult.take(7)
+                    val offsetString = input.take(7)
                     val offsetInt = offsetString.toInt()
                     println("offset=$offsetInt")
-                    val result = fftResult.drop(offsetInt).take(8)
+                    val fftResult = input.times(10_000).fftUpperHalf(phases)
+                    val correctedOffset = offsetInt - input.length / 2 * 10_000
+                    println("correctedOffset=$correctedOffset")
+                    val result = fftResult.drop(correctedOffset).take(8)
                     println("result=$result")
                     result `should equal` expected
                 }
             }
         }
- */
+        describe("exercise") {
+            it("should calculate fft") {
+                val input = readResource("day16Input.txt")!!
+                println("input.length=${input.length}")
+                val offsetString = input.take(7)
+                val offsetInt = offsetString.toInt()
+                println("offset=$offsetInt")
+                val fftResult = input.times(10_000).fftUpperHalf(100)
+                val correctedOffset = offsetInt - input.length / 2 * 10_000
+                println("correctedOffset=$correctedOffset")
+                val result = fftResult.drop(correctedOffset).take(8)
+                println("result=$result")
+                result `should equal` "22621597"
+            }
+        }
+
     }
 })
 
