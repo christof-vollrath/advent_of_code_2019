@@ -204,7 +204,7 @@ class Day17Spec : Spek({
             val intCodes = parseIntCodes09(intCodesString)
             val scaffold = intCodes.executeExtendedIntCodes09(intCodes).map { it.toChar() }.joinToString("")
             it("should print the scaffold") {
-                println(scaffold)
+                println("scaffold=$scaffold")
                 scaffold.length `should be greater than` 0
             }
             it("should calculate the calibration sum") {
@@ -212,31 +212,115 @@ class Day17Spec : Spek({
             }
         }
     }
-})
+    describe("part 2") {
+        given("example feed") {
+            val input = """
+                #######...#####
+                #.....#...#...#
+                #.....#...#...#
+                ......#...#...#
+                ......#...###.#
+                ......#.....#.#
+                ^########...#.#
+                ......#.#...#.#
+                ......#########
+                ........#...#..
+                ....#########..
+                ....#...#......
+                ....#...#......
+                ....#...#......
+                ....#####......
+            """.trimIndent()
+            val scaffold = input.parseScaffold()
 
-private fun Set<Coord2>.calibrate() = map { it.x * it.y}.toSet()
-
-private fun String.findIntersections(): Set<Coord2> {
-    val scaffold = lines().map { it.toList() }
-    operator fun List<List<Char>>.get(x: Int, y: Int): Char {
-        return if ( !(0 <= y && y < size)) '.'
-        else {
-            val row = get(y)
-            if ( ! (0 <= x && x < row.size)) '.'
-            else row.get(x)
+            it("should find start position") {
+                val startPosition = scaffold.findStartPosition()
+                startPosition `should equal` Coord2(0, 6)
+            }
+            it("should parse direction") {
+                val direction = scaffold[0, 6].parseDirection()
+                direction `should equal` RobotDirection.UP
+            }
+            it("should determine rotation") {
+                val startPosition = scaffold.findStartPosition()!!
+                val direction = scaffold[startPosition].parseDirection()
+                val rotation = determineRotation(scaffold, direction, startPosition)
+                rotation `should equal` RobotTurnDirection.RIGHT
+            }
         }
     }
 
-    return scaffold.mapIndexedNotNull { y, row ->
-        row.mapIndexedNotNull { x, c ->
-            if (scaffold[x, y] == '#' &&
-                scaffold[x-1, y] == '#' &&
-                scaffold[x+1, y] == '#' &&
-                scaffold[x, y-1] == '#' &&
-                scaffold[x, y+1] == '#'
-            ) Coord2(x, y)
-            else null
-        }
-    }.flatten().toSet()
+})
+
+val rotationMap = mapOf(
+    RobotDirection.LEFT to listOf(
+        Coord2(0, -1) to RobotTurnDirection.LEFT,
+        Coord2(0, 1) to RobotTurnDirection.RIGHT
+    ),
+    RobotDirection.RIGHT to listOf(
+        Coord2(0, -1) to RobotTurnDirection.RIGHT,
+        Coord2(0, 1) to RobotTurnDirection.LEFT
+    ),
+    RobotDirection.UP to listOf(
+        Coord2(-1, 0) to RobotTurnDirection.LEFT,
+        Coord2(1, 0) to RobotTurnDirection.RIGHT
+    ),
+    RobotDirection.DOWN to listOf(
+        Coord2(-1, 0) to RobotTurnDirection.RIGHT,
+        Coord2(1, 0) to RobotTurnDirection.LEFT
+    )
+)
+
+fun determineRotation(scaffold: List<List<Char>>, direction: RobotDirection, position: Coord2): RobotTurnDirection {
+    val checkList = rotationMap[direction]!!
+    return checkList.find { (offset, turn) ->
+        val checkPos = position + offset
+        scaffold[checkPos] == '#'
+    }!!.second
 }
+
+fun Char.parseDirection() = when(this) {
+    '<' -> RobotDirection.LEFT
+    '>' -> RobotDirection.RIGHT
+    '^' -> RobotDirection.UP
+    'v' -> RobotDirection.DOWN
+    else -> error("Illegal char=$this for direction")
+}
+
+fun List<List<Char>>.findStartPosition() = mapIndexedNotNull { y, row ->
+    row.mapIndexedNotNull { x, c ->
+        if (c in setOf('^', 'v', '<', '>')) { Coord2(x, y) }
+        else null
+    }
+}.flatten().firstOrNull()
+
+fun Set<Coord2>.calibrate() = map { it.x * it.y}.toSet()
+
+fun String.findIntersections(): Set<Coord2> = parseScaffold().findIntersections()
+
+fun String.parseScaffold() = lines().map { it.toList() }
+
+operator fun List<List<Char>>.get(x: Int, y: Int): Char {
+    return if ( !(0 <= y && y < size)) '.'
+    else {
+        val row = get(y)
+        if ( ! (0 <= x && x < row.size)) '.'
+        else row.get(x)
+    }
+}
+
+operator fun List<List<Char>>.get(coord: Coord2) = get(coord.x, coord.y)
+
+fun List<List<Char>>.findIntersections(): Set<Coord2> = mapIndexedNotNull { y, row ->
+    row.mapIndexedNotNull { x, c ->
+        if (this[x, y] == '#' &&
+            this[x-1, y] == '#' &&
+            this[x+1, y] == '#' &&
+            this[x, y-1] == '#' &&
+            this[x, y+1] == '#'
+        ) Coord2(x, y)
+        else null
+    }
+}.flatten().toSet()
+
 

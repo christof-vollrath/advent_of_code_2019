@@ -176,34 +176,8 @@ class PaintRobot(x: Int, y: Int) {
             1 -> turnDirection = RobotTurnDirection.RIGHT
             else -> throw IllegalArgumentException("Unknown action $action for move")
         }
-        robotDirection = when (robotDirection) {
-            RobotDirection.UP ->
-                when(turnDirection) {
-                    RobotTurnDirection.LEFT -> RobotDirection.LEFT
-                    RobotTurnDirection.RIGHT -> RobotDirection.RIGHT
-                }
-            RobotDirection.RIGHT ->
-                when(turnDirection) {
-                    RobotTurnDirection.LEFT -> RobotDirection.UP
-                    RobotTurnDirection.RIGHT -> RobotDirection.DOWN
-                }
-            RobotDirection.DOWN ->
-                when(turnDirection) {
-                    RobotTurnDirection.LEFT -> RobotDirection.RIGHT
-                    RobotTurnDirection.RIGHT -> RobotDirection.LEFT
-                }
-            RobotDirection.LEFT ->
-                when(turnDirection) {
-                    RobotTurnDirection.LEFT -> RobotDirection.DOWN
-                    RobotTurnDirection.RIGHT -> RobotDirection.UP
-                }
-        }
-        when (robotDirection) {
-            RobotDirection.UP -> robotPos = Coord2(robotPos.x, robotPos.y - 1)
-            RobotDirection.RIGHT -> robotPos = Coord2(robotPos.x + 1, robotPos.y)
-            RobotDirection.DOWN -> robotPos = Coord2(robotPos.x, robotPos.y + 1)
-            RobotDirection.LEFT -> robotPos = Coord2(robotPos.x - 1, robotPos.y)
-        }
+        robotDirection = robotDirection.turn(turnDirection)
+        robotPos = robotPos.move(robotDirection)
     }
 
     fun sense(): Int =
@@ -216,9 +190,42 @@ class PaintRobot(x: Int, y: Int) {
         }
 }
 
-enum class RobotDirection { UP, LEFT, RIGHT, DOWN }
+enum class RobotDirection { UP, LEFT, RIGHT, DOWN;
+    fun turn(turnDirection: RobotTurnDirection) =
+        when (this) {
+            RobotDirection.UP ->
+                when (turnDirection) {
+                    RobotTurnDirection.LEFT -> RobotDirection.LEFT
+                    RobotTurnDirection.RIGHT -> RobotDirection.RIGHT
+                }
+            RobotDirection.RIGHT ->
+                when (turnDirection) {
+                    RobotTurnDirection.LEFT -> RobotDirection.UP
+                    RobotTurnDirection.RIGHT -> RobotDirection.DOWN
+                }
+            RobotDirection.DOWN ->
+                when (turnDirection) {
+                    RobotTurnDirection.LEFT -> RobotDirection.RIGHT
+                    RobotTurnDirection.RIGHT -> RobotDirection.LEFT
+                }
+            RobotDirection.LEFT ->
+                when (turnDirection) {
+                    RobotTurnDirection.LEFT -> RobotDirection.DOWN
+                    RobotTurnDirection.RIGHT -> RobotDirection.UP
+                }
+        }
+    }
+
 enum class RobotTurnDirection { LEFT, RIGHT }
 enum class RobotState { PAINT, MOVE }
+
+fun Coord2.move(direction: RobotDirection) =
+    when (direction) {
+        RobotDirection.UP -> Coord2(x, y - 1)
+        RobotDirection.RIGHT -> Coord2(x + 1, y)
+        RobotDirection.DOWN -> Coord2(x, y + 1)
+        RobotDirection.LEFT -> Coord2(x - 1, y)
+    }
 
 
 suspend fun List<Long>.executeExtendedIntCodes09Async(inputChannel: Channel<Long>, outputChannel: Channel<Long>, id: Int = 1) { // Even more intcodes and unlimited memory
