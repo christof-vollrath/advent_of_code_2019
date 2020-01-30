@@ -4,6 +4,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
 
 /*
 --- Day 17: Set and Forget ---
@@ -233,33 +234,74 @@ class Day17Spec : Spek({
             """.trimIndent()
             val scaffold = input.parseScaffold()
 
+            val startPosition = scaffold.findStartPosition()!!
             it("should find start position") {
-                val startPosition = scaffold.findStartPosition()
                 startPosition `should equal` Coord2(0, 6)
             }
+            val direction = scaffold[0, 6].parseDirection()
             it("should parse direction") {
-                val direction = scaffold[0, 6].parseDirection()
                 direction `should equal` RobotDirection.UP
             }
+            val rotation = determineRotation(scaffold, direction, startPosition)
             it("should determine rotation") {
-                val startPosition = scaffold.findStartPosition()!!
-                val direction = scaffold[startPosition].parseDirection()
-                val rotation = determineRotation(scaffold, direction, startPosition)
                 rotation `should equal` RobotTurnDirection.RIGHT
+            }
+
+            describe("robot") {
+                val robot = CleaningRobot(scaffold, startPosition, direction)
+                robot.turn(rotation)
+                it("should turn robot") {
+                    robot.direction `should equal` RobotDirection.RIGHT
+                }
+                val result1 = robot.move()
+                it("should move 8 steps") {
+                    result1 `should equal` 8
+                    robot.position  `should equal` Coord2(8, 6)
+                }
+                val rotation2 = determineRotation(robot)
+                it("should determine rotation") {
+                    rotation `should equal` RobotTurnDirection.RIGHT
+                }
+                robot.turn(rotation2)
+                it("should turn robot") {
+                    robot.direction `should equal` RobotDirection.DOWN
+                }
+                val result2 = robot.move()
+                it("should move 8 steps") {
+                    result2 `should equal` 8
+                    robot.position  `should equal` Coord2(8, 14)
+                }
             }
         }
     }
 
 })
 
+data class CleaningRobot(val scaffold: List<List<Char>>, var position: Coord2, var direction: RobotDirection) {
+    fun turn(rotation: RobotTurnDirection) {
+        direction = direction.turn(rotation)
+    }
+
+    fun move(): Int {
+        var steps = 0
+        while(true) {
+            val nextPosition = position.move(direction)
+            if (scaffold[nextPosition] != '#') break
+            position = nextPosition
+            steps++
+        }
+        return steps
+    }
+}
+
 val rotationMap = mapOf(
     RobotDirection.LEFT to listOf(
-        Coord2(0, -1) to RobotTurnDirection.LEFT,
-        Coord2(0, 1) to RobotTurnDirection.RIGHT
-    ),
-    RobotDirection.RIGHT to listOf(
         Coord2(0, -1) to RobotTurnDirection.RIGHT,
         Coord2(0, 1) to RobotTurnDirection.LEFT
+    ),
+    RobotDirection.RIGHT to listOf(
+        Coord2(0, -1) to RobotTurnDirection.LEFT,
+        Coord2(0, 1) to RobotTurnDirection.RIGHT
     ),
     RobotDirection.UP to listOf(
         Coord2(-1, 0) to RobotTurnDirection.LEFT,
@@ -270,6 +312,8 @@ val rotationMap = mapOf(
         Coord2(1, 0) to RobotTurnDirection.LEFT
     )
 )
+
+fun determineRotation(robot: CleaningRobot) = determineRotation(robot.scaffold, robot.direction, robot.position)
 
 fun determineRotation(scaffold: List<List<Char>>, direction: RobotDirection, position: Coord2): RobotTurnDirection {
     val checkList = rotationMap[direction]!!
