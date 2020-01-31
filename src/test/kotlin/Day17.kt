@@ -352,7 +352,11 @@ class Day17Spec : Spek({
                     )
                 }
                 describe("split path") {
-                    TODO()
+                    val candidates = path.subLists(4, 12)
+                    val candidatesString = candidates.map {candidate ->
+                        candidate.map { it.toString() }.joinToString(",")
+                    }.joinToString("\n")
+                    println("candidates=$candidatesString")
                 }
             }
         }
@@ -422,9 +426,11 @@ sealed class RobotCommand {
 }
 data class RobotRotate(val turnDirection: RobotTurnDirection) : RobotCommand() {
     override val length = 1 + 1 // Including separating comma
+    override fun toString(): String = turnDirection.toString().take(1)
 }
 data class RobotMove(val steps: Int) : RobotCommand() {
     override val length = steps.toString().length + 1
+    override fun toString(): String = steps.toString()
 }
 
 val rotationMap = mapOf(
