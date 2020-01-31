@@ -235,8 +235,6 @@ class Day17Spec : Spek({
                         setOf(
                             listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotMove(1)),
                             listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotMove(1), RobotRotate(RobotTurnDirection.LEFT)),
-                            listOf(RobotMove(1), RobotRotate(RobotTurnDirection.LEFT)),
-                            listOf(RobotMove(1), RobotRotate(RobotTurnDirection.LEFT), RobotMove(2)),
                             listOf(RobotRotate(RobotTurnDirection.LEFT), RobotMove(2))
                         )
                     )
@@ -379,10 +377,12 @@ fun List<RobotCommand>.subListsFromStart(minLength: Int, maxLength: Int): Set<Li
         val list = this@subListsFromStart
         for (i in (list.size - 1) downTo 0) {
             val subList = list.drop(i)
-            val len = subList.map { it.length }.sum()
-            if (len < minLength) continue // too small
-            if (len > maxLength) break // too big
-            yield(subList)
+            if (subList.first() is RobotRotate) {
+                val len = subList.map { it.length }.sum()
+                if (len < minLength) continue // too small
+                if (len > maxLength) break // too big
+                yield(subList)
+            }
         }
     }.toSet()
 
@@ -456,7 +456,7 @@ fun determineRotation(robot: CleaningRobot) = determineRotation(robot.scaffold, 
 
 fun determineRotation(scaffold: List<List<Char>>, direction: RobotDirection, position: Coord2): RobotTurnDirection? {
     val checkList = rotationMap[direction]!!
-    val rotation = checkList.find { (offset, turn) ->
+    val rotation = checkList.find { (offset, _) ->
         val checkPos = position + offset
         scaffold[checkPos] == '#'
     }
