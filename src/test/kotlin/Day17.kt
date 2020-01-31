@@ -5,6 +5,8 @@ import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on as onData
 
 /*
 --- Day 17: Set and Forget ---
@@ -214,6 +216,38 @@ class Day17Spec : Spek({
         }
     }
     describe("part 2") {
+        describe("how to split a path") {
+            describe("generate all sub paths") {
+                val testData = arrayOf(
+                    data(listOf<RobotCommand>(RobotRotate(RobotTurnDirection.RIGHT), RobotRotate(RobotTurnDirection.LEFT)),
+                        setOf<List<RobotCommand>>(
+                            listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotRotate(RobotTurnDirection.LEFT))
+                        )
+                    ),
+                    data(listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotRotate(RobotTurnDirection.LEFT), RobotMove(1)),
+                        setOf(
+                            listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotRotate(RobotTurnDirection.LEFT)),
+                            listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotRotate(RobotTurnDirection.LEFT), RobotMove(1)),
+                            listOf(RobotRotate(RobotTurnDirection.LEFT), RobotMove(1))
+                        )
+                    ),
+                    data(listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotMove(1), RobotRotate(RobotTurnDirection.LEFT), RobotMove(2)),
+                        setOf(
+                            listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotMove(1)),
+                            listOf(RobotRotate(RobotTurnDirection.RIGHT), RobotMove(1), RobotRotate(RobotTurnDirection.LEFT)),
+                            listOf(RobotMove(1), RobotRotate(RobotTurnDirection.LEFT)),
+                            listOf(RobotMove(1), RobotRotate(RobotTurnDirection.LEFT), RobotMove(2)),
+                            listOf(RobotRotate(RobotTurnDirection.LEFT), RobotMove(2))
+                        )
+                    )
+                )
+                onData("list=%s ", with = *testData) { input: List<RobotCommand>, expected: Set<List<RobotCommand>> ->
+                    it("should split command list") {
+                        input.subLists(4, 6) `should equal` expected
+                    }
+                }
+            }
+        }
         given("example feed") {
             val input = """
                 #######...#####
@@ -242,40 +276,111 @@ class Day17Spec : Spek({
             it("should parse direction") {
                 direction `should equal` RobotDirection.UP
             }
-            val rotation = determineRotation(scaffold, direction, startPosition)
+            val startRotation = determineRotation(scaffold, direction, startPosition)
             it("should determine rotation") {
-                rotation `should equal` RobotTurnDirection.RIGHT
+                startRotation `should equal` RobotTurnDirection.RIGHT
             }
 
             describe("robot") {
                 val robot = CleaningRobot(scaffold, startPosition, direction)
-                robot.turn(rotation)
-                it("should turn robot") {
-                    robot.direction `should equal` RobotDirection.RIGHT
+
+                on("turning the robot") {
+                    robot.turn(startRotation!!)
+                    it("should turn robot") {
+                        robot.direction `should equal` RobotDirection.RIGHT
+                    }
                 }
-                val result1 = robot.move()
-                it("should move 8 steps") {
-                    result1 `should equal` 8
-                    robot.position  `should equal` Coord2(8, 6)
+                on("moving the robot") {
+                    val result = robot.move()
+                    it("should move 8 steps") {
+                        result `should equal` 8
+                        robot.position  `should equal` Coord2(8, 6)
+                    }
                 }
-                val rotation2 = determineRotation(robot)
-                it("should determine rotation") {
-                    rotation `should equal` RobotTurnDirection.RIGHT
+                on("turning the robot again") {
+                    val rotation = determineRotation(robot)
+                    it("should determine rotation") {
+                        rotation `should equal` RobotTurnDirection.RIGHT
+                    }
+                    robot.turn(rotation!!)
+                    it("should turn robot again") {
+                        robot.direction `should equal` RobotDirection.DOWN
+                    }
                 }
-                robot.turn(rotation2)
-                it("should turn robot") {
-                    robot.direction `should equal` RobotDirection.DOWN
+                on("moving the robot again") {
+                    val result = robot.move()
+                    it("should move 8 steps again") {
+                        result `should equal` 8
+                        robot.position  `should equal` Coord2(8, 14)
+                    }
                 }
-                val result2 = robot.move()
-                it("should move 8 steps") {
-                    result2 `should equal` 8
-                    robot.position  `should equal` Coord2(8, 14)
+            }
+            describe("find path") {
+                val robot = CleaningRobot(scaffold, startPosition, direction)
+                val path = robot.findPath()
+                it("should find the correct path") {
+                    path `should equal` listOf(
+                        // R,8,R,8,R,4,R,4,R,8,L,6,L,2,R,4,R,4,R,8,R,8,R,8,L,6,L,2
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(8),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(8),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(4),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(4),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(8),
+                        RobotRotate(RobotTurnDirection.LEFT),
+                        RobotMove(6),
+                        RobotRotate(RobotTurnDirection.LEFT),
+                        RobotMove(2),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(4),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(4),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(8),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(8),
+                        RobotRotate(RobotTurnDirection.RIGHT),
+                        RobotMove(8),
+                        RobotRotate(RobotTurnDirection.LEFT),
+                        RobotMove(6),
+                        RobotRotate(RobotTurnDirection.LEFT),
+                        RobotMove(2)
+                    )
+                }
+                describe("split path") {
+                    TODO()
                 }
             }
         }
     }
-
 })
+
+fun List<RobotCommand>.subLists(minLength: Int, maxLength: Int): Set<List<RobotCommand>> =
+    sequence {
+        val list = this@subLists
+        for (i in list.size downTo 1) {
+            val subList = list.take(i)
+            val len = subList.map { it.length }.sum()
+            if (len < minLength) break // too small
+            yield(subList.subListsFromStart(minLength, maxLength))
+        }
+    }.flatten().toSet()
+
+fun List<RobotCommand>.subListsFromStart(minLength: Int, maxLength: Int): Set<List<RobotCommand>> =
+    sequence {
+        val list = this@subListsFromStart
+        for (i in (list.size - 1) downTo 0) {
+            val subList = list.drop(i)
+            val len = subList.map { it.length }.sum()
+            if (len < minLength) continue // too small
+            if (len > maxLength) break // too big
+            yield(subList)
+        }
+    }.toSet()
 
 data class CleaningRobot(val scaffold: List<List<Char>>, var position: Coord2, var direction: RobotDirection) {
     fun turn(rotation: RobotTurnDirection) {
@@ -292,6 +397,34 @@ data class CleaningRobot(val scaffold: List<List<Char>>, var position: Coord2, v
         }
         return steps
     }
+
+    fun findPath(): List<RobotCommand> =
+        sequence {
+            val startPosition = scaffold.findStartPosition()!!
+            val direction = scaffold[startPosition].parseDirection()
+            val startRotation = determineRotation(scaffold, direction, startPosition)!!
+            val robot = CleaningRobot(scaffold, startPosition, direction)
+            robot.turn(startRotation)
+            yield(RobotRotate(startRotation))
+            while(true) {
+                val steps = robot.move()
+                yield(RobotMove(steps))
+                val rotation = determineRotation(robot)
+                if (rotation == null) break
+                robot.turn(rotation)
+                yield(RobotRotate(rotation))
+            }
+        }.toList()
+}
+
+sealed class RobotCommand {
+    abstract val length: Int
+}
+data class RobotRotate(val turnDirection: RobotTurnDirection) : RobotCommand() {
+    override val length = 1 + 1 // Including separating comma
+}
+data class RobotMove(val steps: Int) : RobotCommand() {
+    override val length = steps.toString().length + 1
 }
 
 val rotationMap = mapOf(
@@ -315,12 +448,13 @@ val rotationMap = mapOf(
 
 fun determineRotation(robot: CleaningRobot) = determineRotation(robot.scaffold, robot.direction, robot.position)
 
-fun determineRotation(scaffold: List<List<Char>>, direction: RobotDirection, position: Coord2): RobotTurnDirection {
+fun determineRotation(scaffold: List<List<Char>>, direction: RobotDirection, position: Coord2): RobotTurnDirection? {
     val checkList = rotationMap[direction]!!
-    return checkList.find { (offset, turn) ->
+    val rotation = checkList.find { (offset, turn) ->
         val checkPos = position + offset
         scaffold[checkPos] == '#'
-    }!!.second
+    }
+    return rotation?.second
 }
 
 fun Char.parseDirection() = when(this) {
