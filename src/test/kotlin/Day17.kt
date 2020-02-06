@@ -411,15 +411,10 @@ class Day17Spec : Spek({
                     }
                     describe("find optimal sub paths") {
                         val (sequence, paths) = path.findOptimalSubPaths(3, 6, 12)
-                        println("sequence=$sequence")
-                        println("paths=$paths")
-                        sequence.size `should equal` 3
-                        paths.toSet() `should contain` listOf(
-                            RobotRotate(RobotTurnDirection.RIGHT),
-                            RobotMove(8),
-                            RobotRotate(RobotTurnDirection.RIGHT),
-                            RobotMove(8)
-                        )
+                        it("should have found correct sup paths") {
+                            val combinedPath = sequence.flatMap { paths[it] }
+                            combinedPath `should equal` path
+                        }
                     }
                 }
             }
@@ -430,14 +425,25 @@ class Day17Spec : Spek({
             val direction = scaffold[startPosition].parseDirection()
             val robot = CleaningRobot(scaffold, startPosition, direction)
             val path = robot.findPath()
-            val candidates = path.robotSubLists(6, 12)
-            val candidatesString = candidates.map {candidate ->
-                candidate.map { it.toString() }.joinToString(",")
-            }.joinToString("\n")
-            println("candidates=$candidatesString")
+            describe("split path") {
+                val candidates = path.robotSubLists(6, 12)
+                val candidatesString = candidates.map {candidate ->
+                    candidate.map { it.toString() }.joinToString(",")
+                }.joinToString("\n")
+                println("candidates=$candidatesString")
 
+            }
+            describe("find sequence of sub paths") {
+                it("should find optimal sub paths") {
+                    val (sequence, paths) = path.findOptimalSubPaths(3, 6, 12)
+                    val combinedPath = sequence.flatMap { paths[it] }
+                    println("sequence=$sequence")
+                    println("paths=$paths")
+                    combinedPath `should equal` path
+                }
+
+            }
         }
-
     }
 })
 
@@ -449,8 +455,12 @@ private fun List<RobotCommand>.findOptimalSubPaths(maxSequenceLength: Int, minLe
 }
 
 fun List<RobotCommand>.findOptimalSubPaths(maxSequenceLength: Int, remainingCandidates: Set<List<RobotCommand>>, sequence: List<Int>, paths: List<List<RobotCommand>>): Pair<List<Int>, List<List<RobotCommand>>>? {
+    println("robotCommands=$this sequence=$sequence paths=$paths")
+    if (this.isEmpty()) return sequence to paths
+    if (paths.size > 3) return null // Too much subpaths
     // Try already used pathes
     paths.forEachIndexed { index, path ->
+        println("checking reuse of path=$path")
         if (this.startsWithRobotCommands(path, 0)) {
             val subResult = this.drop(path.size).findOptimalSubPaths(maxSequenceLength, remainingCandidates, sequence.plusElement(index), paths)
             if (subResult != null) return subResult
@@ -458,12 +468,13 @@ fun List<RobotCommand>.findOptimalSubPaths(maxSequenceLength: Int, remainingCand
     }
     // Try new pathes from candidates
     remainingCandidates.forEach { candidate ->
+        println("checking new candidate=$candidate")
         if (this.startsWithRobotCommands(candidate, 0)) {
             val subResult = this.drop(candidate.size).findOptimalSubPaths(maxSequenceLength, remainingCandidates.minusElement(candidate), sequence.plusElement(paths.size), paths.plusElement(candidate))
             if (subResult != null) return subResult
         }
     }
-    return null
+    return null // Dead end
 }
 
 fun List<RobotCommand>.startsWithRobotCommands(commands: List<RobotCommand>, start: Int): Boolean = drop(start).zip(commands).all { (original, compareTo) ->
