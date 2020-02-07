@@ -181,7 +181,7 @@ class Day17Spec : Spek({
 
     val intCodesString = readResource("day17Input.txt")!!
     val intCodes = parseIntCodes09(intCodesString)
-    val scaffoldString = intCodes.executeExtendedIntCodes09(intCodes).map { it.toChar() }.joinToString("")
+    val scaffoldString = intCodes.executeExtendedIntCodes09(emptyList()).map { it.toChar() }.joinToString("")
 
     describe("part 1") {
         describe("find intersections") {
@@ -434,10 +434,30 @@ class Day17Spec : Spek({
 
             }
             describe("find sequence of sub paths") {
+                val (sequence, paths) = path.findOptimalSubPaths(20, 6, 20)
                 it("should find optimal sub paths") {
-                    val (sequence, paths) = path.findOptimalSubPaths(20, 6, 20)
                     val combinedPath = sequence.flatMap { paths[it] }
                     combinedPath `should equal` path
+                }
+                val mainRoutine = sequence.map { 'A' + it }.joinToString(",")
+                val movementFunctions = paths.map { it.joinToString(",") }.joinToString("\n")
+                println("path=${path.joinToString(",")}")
+                println("mainRoutine=$mainRoutine")
+                println("movementFunctions=$movementFunctions")
+                describe("run the robot") {
+                    val modifiedIntCodes = intCodes.mapIndexed { index, l ->
+                        if (index == 0) {
+                            if (l != 1L) error("expected 1 at the beginning of the ASCII program")
+                            2L
+                        }
+                        else l
+                    }
+                    val inputString = mainRoutine + "\n" + movementFunctions + "\n" + "n" + "\n"
+                    val input = inputString.map { it.toLong() + 0L }
+                    val result = modifiedIntCodes.executeExtendedIntCodes09(input).last()
+                    it("should have reported the right number") {
+                        result `should equal` 945911L
+                    }
                 }
 
             }
