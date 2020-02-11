@@ -73,3 +73,19 @@ data class CartesianCoordinate(val x: Double, val y: Double) {
         return PolarCoordinate(dist, angle)
     }
 }
+
+
+data class Coord2(val x: Int, val y: Int) {
+    infix fun manhattanDistance(other: Coord2): Int = abs(x - other.x) + abs(y - other.y)
+    operator fun plus(direction: Coord2) = Coord2(x + direction.x, y + direction.y)
+}
+
+fun <E> List<List<E>>.getOrNull(coord: Coord2): E? {
+    return if ( !(0 <= coord.y && coord.y < size)) null
+    else {
+        val row = get(coord.y)
+        if ( ! (0 <= coord.x && coord.x < row.size)) null
+        else row.get(coord.x)
+    }
+}
+

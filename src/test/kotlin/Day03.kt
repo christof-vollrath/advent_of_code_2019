@@ -206,11 +206,6 @@ enum class WireDirection(val direction: Coord2) {
 fun String.parseWires() = split("\n").map { it.parseWire() }
 fun String.parseWire(): List<String> = split(",").map { it.trim() }
 
-data class Coord2(val x: Int, val y: Int) {
-    infix fun manhattanDistance(other: Coord2): Int = abs(x - other.x) + abs(y - other.y)
-    operator fun plus(direction: Coord2) = Coord2(x + direction.x, y + direction.y)
-}
-
 class Day03Spec : Spek({
 
     describe("part 1") {
