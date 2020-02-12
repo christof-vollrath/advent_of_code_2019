@@ -4,6 +4,10 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.data_driven.data
+import org.jetbrains.spek.data_driven.on
+import org.jetbrains.spek.data_driven.on as onData
+
 
 /*
 --- Day 18: Many-Worlds Interpretation ---
@@ -192,12 +196,73 @@ class Day18Spec : Spek({
                 )
             }
         }
+        describe("find shortest steps") {
+            val testData = arrayOf(
+                data("""
+                    #########
+                    #b.A.@.a#
+                    #########
+                """.trimIndent(), 8),
+                data("""
+                    ########################
+                    #f.D.E.e.C.b.A.@.a.B.c.#
+                    ######################.#
+                    #d.....................#
+                    ########################
+                """.trimIndent(), 86),
+                data("""
+                    ########################
+                    #...............b.C.D.f#
+                    #.######################
+                    #.....@.a.B.c.d.A.e.F.g#
+                    ########################
+                """.trimIndent(), 132)
+
+            )
+            onData("triton map %s ", with = *testData) { input, expected ->
+                val tritonMapWithoutIntersections = input.parseTritonMap()
+                val pois = tritonMapWithoutIntersections.findPois()
+                val tritonMap = tritonMapWithoutIntersections.replaceIntersections(pois)
+                val connections = findConnections(tritonMap, pois)
+                val path = findShortestSteps(tritonMap, pois, connections)
+                println("path=$path")
+                val length = path.sumBy { it.dist }
+                it("should have found the shortest path") {
+                    length `should equal` expected
+                }
+            }
+        }
     }
 })
 
+fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>): List<PoiConnection> {
+    val entrance = pois.filterIsInstance<Entrance>().first()
+    val allKeys = pois.filterIsInstance<Key>().toSet()
+    var visitedRoutes = setOf<TritonSearchState>(TritonSearchState(entrance, emptyList(), emptySet()))
+    while(true) {
+        val solution = visitedRoutes.find { it.keys == allKeys}
+        if (solution != null) return solution.path
+        visitedRoutes = visitedRoutes.flatMap { route ->
+            val nextConnections = connections[route.position.coord] ?: emptySet()
+            nextConnections.mapNotNull { nextConnection ->
+                val nextPosition = tritonMap.getOrNull(nextConnection.coord)
+                if (nextPosition == null || nextPosition !is Poi) error("Connection pointing to wrong position $nextPosition")
+                if (nextPosition is Door && ! nextPosition.matchingKey(route.keys)) null
+                else {
+                    val nextPath = route.path + nextConnection
+                    val nextKeys = if (nextPosition is Key) route.keys + nextPosition
+                    else route.keys
+                    TritonSearchState(nextPosition, nextPath, nextKeys)
+                }
+            }
+        }.toSet()
+    }
+}
+
+data class TritonSearchState(val position: Poi, val path: List<PoiConnection>, val keys: Set<Key>)
+
 private fun findConnections(map: List<List<TritonCoord>>, pois: Set<Poi>): Map<Coord2, Set<PoiConnection>> {
     fun follow(from: TritonCoord, current: TritonCoord, length: Int): PoiConnection? {
-        println("current=$current length=$length")
         return if (current is Poi) PoiConnection(current.coord, length)
         else {
             val next = current.neighbors(map).filter { it != from }
@@ -273,5 +338,7 @@ data class Empty(val x: Int, val y: Int) : TritonCoord(Coord2(x, y))
 sealed class Poi(coord: Coord2) : TritonCoord(coord)
 data class Entrance(val x: Int, val y: Int) : Poi(Coord2(x, y))
 data class Key(val c: Char, val x: Int, val y: Int) : Poi(Coord2(x, y))
-data class Door(val c: Char, val x: Int, val y: Int) : Poi(Coord2(x, y))
+data class Door(val c: Char, val x: Int, val y: Int) : Poi(Coord2(x, y)) {
+    fun matchingKey(keys: Set<Key>) = keys.any { it.c == c.toLowerCase() }
+}
 data class Intersection(val x: Int, val y: Int) : Poi(Coord2(x, y))
