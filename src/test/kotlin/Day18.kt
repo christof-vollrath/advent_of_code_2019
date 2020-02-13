@@ -216,8 +216,26 @@ class Day18Spec : Spek({
                     #.######################
                     #.....@.a.B.c.d.A.e.F.g#
                     ########################
-                """.trimIndent(), 132)
-
+                """.trimIndent(), 132),
+                data("""
+                    #################
+                    #i.G..c...e..H.p#
+                    ########.########
+                    #j.A..b...f..D.o#
+                    ########@########
+                    #k.E..a...g..B.n#
+                    ########.########
+                    #l.F..d...h..C.m#
+                    #################
+                """.trimIndent(), 136),
+                data("""
+                    ########################
+                    #@..............ac.GI.b#
+                    ###d#e#f################
+                    ###A#B#C################
+                    ###g#h#i################
+                    ########################
+                """.trimIndent(), 81)
             )
             onData("triton map %s ", with = *testData) { input, expected ->
                 val tritonMapWithoutIntersections = input.parseTritonMap()
@@ -256,6 +274,7 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
                 }
             }
         }.toSet()
+        if (visitedRoutes.isEmpty()) error("nothing found")
     }
 }
 
