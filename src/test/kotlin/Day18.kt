@@ -238,43 +238,64 @@ class Day18Spec : Spek({
                 """.trimIndent(), 81)
             )
             onData("triton map %s ", with = *testData) { input, expected ->
-                val tritonMapWithoutIntersections = input.parseTritonMap()
-                val pois = tritonMapWithoutIntersections.findPois()
-                val tritonMap = tritonMapWithoutIntersections.replaceIntersections(pois)
-                val connections = findConnections(tritonMap, pois)
-                val path = findShortestSteps(tritonMap, pois, connections)
-                println("path=$path")
+                val path = findShortestPath(input)
                 val length = path.sumBy { it.dist }
                 it("should have found the shortest path") {
                     length `should equal` expected
                 }
             }
         }
+        given("exercise") {
+            val input = readResource("day18Input.txt")!!
+            val path = findShortestPath(input)
+            it("should have found the shortest path") {
+                val length = path.sumBy { it.dist }
+                length `should equal` 4762
+            }
+        }
+
     }
 })
+
+fun findShortestPath(input: String): List<PoiConnection> {
+    val tritonMapWithoutIntersections = input.parseTritonMap()
+    val pois = tritonMapWithoutIntersections.findPois()
+    val tritonMap = tritonMapWithoutIntersections.replaceIntersections(pois)
+    val connections = findConnections(tritonMap, pois)
+    val path = findShortestSteps(tritonMap, pois, connections)
+    return path
+}
 
 fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>): List<PoiConnection> {
     val entrance = pois.filterIsInstance<Entrance>().first()
     val allKeys = pois.filterIsInstance<Key>().toSet()
-    var visitedRoutes = setOf<TritonSearchState>(TritonSearchState(entrance, emptyList(), emptySet()))
+    val visitedRoutes = mutableMapOf((entrance.coord to emptySet<Key>()) to TritonSearchState(entrance, emptyList(), emptySet()))
+    var currentRoutes = mutableMapOf<Pair<Coord2,Set<Key>>, TritonSearchState>()
+    currentRoutes.putAll(visitedRoutes)
     while(true) {
-        val solution = visitedRoutes.find { it.keys == allKeys}
+        val solution = visitedRoutes.values.find { it.keys == allKeys}
         if (solution != null) return solution.path
-        visitedRoutes = visitedRoutes.flatMap { route ->
+        val nextCurrentRoutes = mutableMapOf<Pair<Coord2,Set<Key>>, TritonSearchState>()
+        currentRoutes.values.forEach { route ->
             val nextConnections = connections[route.position.coord] ?: emptySet()
-            nextConnections.mapNotNull { nextConnection ->
+            nextConnections.forEach { nextConnection ->
                 val nextPosition = tritonMap.getOrNull(nextConnection.coord)
                 if (nextPosition == null || nextPosition !is Poi) error("Connection pointing to wrong position $nextPosition")
-                if (nextPosition is Door && ! nextPosition.matchingKey(route.keys)) null
-                else {
+                if (nextPosition !is Door || nextPosition.matchingKey(route.keys)) {
                     val nextPath = route.path + nextConnection
                     val nextKeys = if (nextPosition is Key) route.keys + nextPosition
                     else route.keys
-                    TritonSearchState(nextPosition, nextPath, nextKeys)
+                    val tritonSearchState = TritonSearchState(nextPosition, nextPath, nextKeys)
+                    val visitedRoute = visitedRoutes[nextPosition.coord to nextKeys]
+                    if (visitedRoute == null) {
+                        visitedRoutes[nextPosition.coord to nextKeys] = tritonSearchState
+                        nextCurrentRoutes[nextPosition.coord to nextKeys] = tritonSearchState
+                    }
                 }
             }
-        }.toSet()
-        if (visitedRoutes.isEmpty()) error("nothing found")
+        }
+        currentRoutes = nextCurrentRoutes
+        if (currentRoutes.isEmpty()) error("nothing found")
     }
 }
 
