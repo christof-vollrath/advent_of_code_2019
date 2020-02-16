@@ -408,6 +408,29 @@ class Day18Spec : Spek({
         }
 
     }
+    describe("part 2") {
+        describe("find shortest steps with four entrances") {
+            val testData = arrayOf(
+                data("""
+                    #######
+                    #a.#Cd#
+                    ##@#@##
+                    #######
+                    ##@#@##
+                    #cB#Ab#
+                    #######
+                """.trimIndent(), 8)
+            )
+            onData("triton map %s ", with = *testData) { input, expected ->
+                val path = findShortestPath(input)
+                val length = path.sumBy { it.dist }
+                it("should have found the shortest path") {
+                    length `should equal` expected
+                }
+            }
+        }
+    }
+
 })
 
 fun findShortestPath(input: String): List<PoiConnection> {
