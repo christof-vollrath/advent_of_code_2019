@@ -1,11 +1,9 @@
-import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.data_driven.data
-import org.jetbrains.spek.data_driven.on
 import org.jetbrains.spek.data_driven.on as onData
 
 
@@ -442,30 +440,32 @@ fun findShortestPath(input: String): List<PoiConnection> {
     return path
 }
 
-fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>): List<PoiConnection> {
+fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>): List<List<PoiConnection>> {
     val entrance = pois.filterIsInstance<Entrance>().first()
     val allKeys = pois.filterIsInstance<Key>().toSet()
-    val visitedRoutes = mutableMapOf((entrance.coord to emptySet<Key>()) to TritonSearchState(entrance, emptyList(), emptySet()))
-    var currentRoutes = mutableMapOf<Pair<Coord2,Set<Key>>, TritonSearchState>()
+    val visitedRoutes = mutableMapOf(listOf(entrance.coord to emptySet<Key>()) to TritonSearchState(listOf(TritonSearchStateEntry(entrance, emptyList())), emptySet()))
+    var currentRoutes = mutableMapOf<List<Pair<Coord2,Set<Key>>>, TritonSearchState>()
     currentRoutes.putAll(visitedRoutes)
     while(true) {
         val solution = visitedRoutes.values.find { it.keys == allKeys}
-        if (solution != null) return solution.path
-        val nextCurrentRoutes = mutableMapOf<Pair<Coord2,Set<Key>>, TritonSearchState>()
-        currentRoutes.values.forEach { route ->
-            val nextConnections = connections[route.position.coord] ?: emptySet()
-            nextConnections.forEach { nextConnection ->
-                val nextPosition = tritonMap.getOrNull(nextConnection.coord)
-                if (nextPosition == null || nextPosition !is Poi) error("Connection pointing to wrong position $nextPosition")
-                if (nextPosition !is Door || nextPosition.matchingKey(route.keys)) {
-                    val nextPath = route.path + nextConnection
-                    val nextKeys = if (nextPosition is Key) route.keys + nextPosition
-                    else route.keys
-                    val tritonSearchState = TritonSearchState(nextPosition, nextPath, nextKeys)
-                    val visitedRoute = visitedRoutes[nextPosition.coord to nextKeys]
-                    if (visitedRoute == null) {
-                        visitedRoutes[nextPosition.coord to nextKeys] = tritonSearchState
-                        nextCurrentRoutes[nextPosition.coord to nextKeys] = tritonSearchState
+        if (solution != null) return solution.routes.map { it.path }
+        val nextCurrentRoutes = mutableMapOf<List<Pair<Coord2,Set<Key>>>, TritonSearchState>()
+        currentRoutes.values.forEach { tritonSearchState ->
+            tritonSearchState.routes. forEach { route ->
+                val nextConnections = connections[route.position.coord] ?: emptySet()
+                nextConnections.forEach { nextConnection ->
+                    val nextPosition = tritonMap.getOrNull(nextConnection.coord)
+                    if (nextPosition == null || nextPosition !is Poi) error("Connection pointing to wrong position $nextPosition")
+                    if (nextPosition !is Door || nextPosition.matchingKey(tritonSearchState.keys)) {
+                        val nextPath = route.path + nextConnection
+                        val nextKeys = if (nextPosition is Key) tritonSearchState.keys + nextPosition
+                        else tritonSearchState.keys
+                        val tritonSearchState = TritonSearchStateEntry(nextPosition, nextPath, nextKeys)
+                        val visitedRoute = visitedRoutes[nextPosition.coord to nextKeys]
+                        if (visitedRoute == null) {
+                            visitedRoutes[nextPosition.coord to nextKeys] = tritonSearchState
+                            nextCurrentRoutes[nextPosition.coord to nextKeys] = tritonSearchState
+                        }
                     }
                 }
             }
@@ -475,7 +475,8 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
     }
 }
 
-data class TritonSearchState(val position: Poi, val path: List<PoiConnection>, val keys: Set<Key>)
+data class TritonSearchStateEntry(val position: Poi, val path: List<PoiConnection>)
+data class TritonSearchState(val routes: List<TritonSearchStateEntry>, val keys: Set<Key>)
 
 private fun findConnections(map: List<List<TritonCoord>>, pois: Set<Poi>): Map<Coord2, Set<PoiConnection>> {
     fun follow(from: TritonCoord, current: TritonCoord, length: Int): PoiConnection? {
