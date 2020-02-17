@@ -389,8 +389,8 @@ class Day18Spec : Spek({
                 """.trimIndent(), 81)
             )
             onData("triton map %s ", with = *testData) { input, expected ->
-                val path = findShortestPath(input)
-                val length = path.sumBy { it.dist }
+                val paths = findShortestPath(input)
+                val length = paths.flatten().sumBy { it.dist }
                 it("should have found the shortest path") {
                     length `should equal` expected
                 }
@@ -398,13 +398,12 @@ class Day18Spec : Spek({
         }
         given("exercise") {
             val input = readResource("day18Input.txt")!!
-            val path = findShortestPath(input)
+            val paths = findShortestPath(input)
             it("should have found the shortest path") {
-                val length = path.sumBy { it.dist }
+                val length = paths.flatten().sumBy { it.dist }
                 length `should equal` 4762
             }
         }
-
     }
     describe("part 2") {
         describe("find shortest steps with four entrances") {
@@ -420,8 +419,8 @@ class Day18Spec : Spek({
                 """.trimIndent(), 8)
             )
             onData("triton map %s ", with = *testData) { input, expected ->
-                val path = findShortestPath(input)
-                val length = path.sumBy { it.dist }
+                val paths = findShortestPath(input)
+                val length = paths.flatten().sumBy { it.dist }
                 it("should have found the shortest path") {
                     length `should equal` expected
                 }
@@ -431,7 +430,7 @@ class Day18Spec : Spek({
 
 })
 
-fun findShortestPath(input: String): List<PoiConnection> {
+fun findShortestPath(input: String): List<List<PoiConnection>> {
     val tritonMapWithoutIntersections = input.parseTritonMap()
     val pois = tritonMapWithoutIntersections.findPois()
     val tritonMap = tritonMapWithoutIntersections.replaceIntersections(pois)
@@ -451,7 +450,7 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
         if (solution != null) return solution.routes.map { it.path }
         val nextCurrentRoutes = mutableMapOf<List<Pair<Coord2,Set<Key>>>, TritonSearchState>()
         currentRoutes.values.forEach { tritonSearchState ->
-            tritonSearchState.routes. forEach { route ->
+            tritonSearchState.routes.forEach { route ->
                 val nextConnections = connections[route.position.coord] ?: emptySet()
                 nextConnections.forEach { nextConnection ->
                     val nextPosition = tritonMap.getOrNull(nextConnection.coord)
@@ -460,11 +459,12 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
                         val nextPath = route.path + nextConnection
                         val nextKeys = if (nextPosition is Key) tritonSearchState.keys + nextPosition
                         else tritonSearchState.keys
-                        val tritonSearchState = TritonSearchStateEntry(nextPosition, nextPath, nextKeys)
-                        val visitedRoute = visitedRoutes[nextPosition.coord to nextKeys]
+                        val tritonSearchStateEntry = TritonSearchStateEntry(nextPosition, nextPath)
+                        val tritonSearchState = TritonSearchState(listOf(tritonSearchStateEntry), nextKeys) // TODO more roots
+                        val visitedRoute = visitedRoutes[listOf(nextPosition.coord to nextKeys)] // TODO more coords
                         if (visitedRoute == null) {
-                            visitedRoutes[nextPosition.coord to nextKeys] = tritonSearchState
-                            nextCurrentRoutes[nextPosition.coord to nextKeys] = tritonSearchState
+                            visitedRoutes[listOf(nextPosition.coord to nextKeys)] = tritonSearchState
+                            nextCurrentRoutes[listOf(nextPosition.coord to nextKeys)] = tritonSearchState
                         }
                     }
                 }
