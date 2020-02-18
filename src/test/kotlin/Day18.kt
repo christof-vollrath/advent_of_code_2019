@@ -416,7 +416,36 @@ class Day18Spec : Spek({
                     ##@#@##
                     #cB#Ab#
                     #######
-                """.trimIndent(), 8)
+                """.trimIndent(), 8),
+                data("""
+                    ###############
+                    #d.ABC.#.....a#
+                    ######@#@######
+                    ###############
+                    ######@#@######
+                    #b.....#.....c#
+                    ###############
+                """.trimIndent(), 24),
+                data("""
+                    #############
+                    #DcBa.#.GhKl#
+                    #.###@#@#I###
+                    #e#d#####j#k#
+                    ###C#@#@###J#
+                    #fEbA.#.FgHi#
+                    #############
+                """.trimIndent(), 32),
+                data("""
+                    #############
+                    #g#f.D#..h#l#
+                    #F###e#E###.#
+                    #dCba@#@BcIJ#
+                    #############
+                    #nK.L@#@G...#
+                    #M###N#H###.#
+                    #o#m..#i#jk.#
+                    #############
+                """.trimIndent(), 72)
             )
             onData("triton map %s ", with = *testData) { input, expected ->
                 val paths = findShortestPath(input)
@@ -440,17 +469,20 @@ fun findShortestPath(input: String): List<List<PoiConnection>> {
 }
 
 fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>): List<List<PoiConnection>> {
-    val entrance = pois.filterIsInstance<Entrance>().first()
+    val entrances = pois.filterIsInstance<Entrance>()
     val allKeys = pois.filterIsInstance<Key>().toSet()
-    val visitedRoutes = mutableMapOf(listOf(entrance.coord to emptySet<Key>()) to TritonSearchState(listOf(TritonSearchStateEntry(entrance, emptyList())), emptySet()))
-    var currentRoutes = mutableMapOf<List<Pair<Coord2,Set<Key>>>, TritonSearchState>()
+    val entranceCoords = entrances.map { it.coord }
+    val tritonSearchEntries = entrances.map { TritonSearchStateEntry(it, emptyList())}
+    val visitedRoutes = mutableMapOf((entranceCoords to emptySet<Key>()) to TritonSearchState(tritonSearchEntries, emptySet()))
+    var currentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
     currentRoutes.putAll(visitedRoutes)
     while(true) {
         val solution = visitedRoutes.values.find { it.keys == allKeys}
         if (solution != null) return solution.routes.map { it.path }
-        val nextCurrentRoutes = mutableMapOf<List<Pair<Coord2,Set<Key>>>, TritonSearchState>()
+        val nextCurrentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
         currentRoutes.values.forEach { tritonSearchState ->
-            tritonSearchState.routes.forEach { route ->
+            val routes = tritonSearchState.routes
+            routes.forEachIndexed { i, route ->
                 val nextConnections = connections[route.position.coord] ?: emptySet()
                 nextConnections.forEach { nextConnection ->
                     val nextPosition = tritonMap.getOrNull(nextConnection.coord)
@@ -459,12 +491,20 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
                         val nextPath = route.path + nextConnection
                         val nextKeys = if (nextPosition is Key) tritonSearchState.keys + nextPosition
                         else tritonSearchState.keys
-                        val tritonSearchStateEntry = TritonSearchStateEntry(nextPosition, nextPath)
-                        val tritonSearchState = TritonSearchState(listOf(tritonSearchStateEntry), nextKeys) // TODO more roots
-                        val visitedRoute = visitedRoutes[listOf(nextPosition.coord to nextKeys)] // TODO more coords
+                        val nextRoute = TritonSearchStateEntry(nextPosition, nextPath)
+                        val nextRoutes = routes.mapIndexed { i2, route ->
+                            if (i == i2) nextRoute
+                            else route
+                        }
+                        val nextPositionAndKeys = routes.mapIndexed { i2, route ->
+                            if (i == i2) nextPosition.coord
+                            else route.position.coord
+                        }  to nextKeys
+                        val tritonSearchState = TritonSearchState(nextRoutes, nextKeys)
+                        val visitedRoute = visitedRoutes[nextPositionAndKeys]
                         if (visitedRoute == null) {
-                            visitedRoutes[listOf(nextPosition.coord to nextKeys)] = tritonSearchState
-                            nextCurrentRoutes[listOf(nextPosition.coord to nextKeys)] = tritonSearchState
+                            visitedRoutes[listOf(nextPosition.coord) to nextKeys] = tritonSearchState
+                            nextCurrentRoutes[listOf(nextPosition.coord) to nextKeys] = tritonSearchState
                         }
                     }
                 }
