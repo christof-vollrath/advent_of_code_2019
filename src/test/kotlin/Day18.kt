@@ -476,9 +476,7 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
     val visitedRoutes = mutableMapOf((entranceCoords to emptySet<Key>()) to TritonSearchState(tritonSearchEntries, emptySet()))
     var currentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
     currentRoutes.putAll(visitedRoutes)
-    while(true) {
-        val solution = visitedRoutes.values.find { it.keys == allKeys}
-        if (solution != null) return solution.routes.map { it.path }
+    while(currentRoutes.isNotEmpty()) {
         val nextCurrentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
         currentRoutes.values.forEach { tritonSearchState ->
             val routes = tritonSearchState.routes
@@ -503,16 +501,20 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
                         val tritonSearchState = TritonSearchState(nextRoutes, nextKeys)
                         val visitedRoute = visitedRoutes[nextPositionAndKeys]
                         if (visitedRoute == null) {
-                            visitedRoutes[listOf(nextPosition.coord) to nextKeys] = tritonSearchState
-                            nextCurrentRoutes[listOf(nextPosition.coord) to nextKeys] = tritonSearchState
+                            visitedRoutes[nextPositionAndKeys] = tritonSearchState
+                            nextCurrentRoutes[nextPositionAndKeys] = tritonSearchState
                         }
                     }
                 }
             }
         }
         currentRoutes = nextCurrentRoutes
-        if (currentRoutes.isEmpty()) error("nothing found")
     }
+    val solutions = visitedRoutes.values.filter { it.keys == allKeys}
+    return if (solutions.isNotEmpty()) {
+        val solution = solutions.sortedBy { it.routes.map { it.path }.flatten().sumBy { it.dist } }.first()
+        solution.routes.map { it.path }
+    } else error("no solution found")
 }
 
 data class TritonSearchStateEntry(val position: Poi, val path: List<PoiConnection>)
