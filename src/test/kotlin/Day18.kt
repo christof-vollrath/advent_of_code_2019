@@ -398,8 +398,8 @@ class Day18Spec : Spek({
         }
         given("exercise") {
             val input = readResource("day18Input.txt")!!
-            val paths = findShortestPath(input)
-            it("should have found the shortest path") {
+            it("should find the shortest path") {
+                val paths = findShortestPath(input)
                 val length = paths.flatten().sumBy { it.dist }
                 length `should equal` 4762
             }
@@ -455,9 +455,65 @@ class Day18Spec : Spek({
                 }
             }
         }
+        describe("replace entrance with for entrances") {
+            given("a map with a single entrance") {
+                val singleEntranceMap = """
+                    #######
+                    #a.#Cd#
+                    ##...##
+                    ##.@.##
+                    ##...##
+                    #cB#Ab#
+                    #######
+                """.trimIndent()
+                val expected = """
+                    #######
+                    #a.#Cd#
+                    ##@#@##
+                    #######
+                    ##@#@##
+                    #cB#Ab#
+                    #######
+                """.trimIndent()
+                it("should be replaced to a map with four entrances") {
+                    singleEntranceMap.replaceEntranceWithFour() `should equal` expected
+                }
+            }
+        }
+        given("exercise") {
+            val input = readResource("day18Input.txt")!!
+            val modifiedInput = input.replaceEntranceWithFour()
+            println("modifiedInput=\n$modifiedInput")
+            it("should find the shortest path") {
+                val paths = findShortestPath(modifiedInput)
+                val length = paths.flatten().sumBy { it.dist }
+                length `should equal` 0
+            }
+        }
     }
-
 })
+
+fun String.replaceEntranceWithFour(): String {
+    val splitedString = parseTritonMapToChars()
+    val entrancePosition = lines().mapIndexed { y, line ->
+        line.mapIndexed { x, c ->
+            if (c == '@') Coord2(x, y) else null
+        }
+    }.flatten().filterNotNull().first()
+    val multiEntranceMap = """
+        @#@
+        ###
+        @#@        
+    """.trimIndent().parseTritonMapToChars()
+    return splitedString.mapIndexed { y, row ->
+        row.mapIndexed { x, c ->
+            if (x >= entrancePosition.x - 1 && x <= entrancePosition.x + 1 &&
+                y >= entrancePosition.y - 1 && y <= entrancePosition.y + 1)
+                multiEntranceMap[y - (entrancePosition.y - 1)][x - (entrancePosition.x - 1)]
+            else c
+        }
+    }.map { it.joinToString("") }.joinToString("\n")
+}
 
 fun findShortestPath(input: String): List<List<PoiConnection>> {
     val tritonMapWithoutIntersections = input.parseTritonMap()
@@ -472,11 +528,12 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
     val entrances = pois.filterIsInstance<Entrance>()
     val allKeys = pois.filterIsInstance<Key>().toSet()
     val entranceCoords = entrances.map { it.coord }
-    val tritonSearchEntries = entrances.map { TritonSearchStateEntry(it, emptyList())}
+    val tritonSearchEntries = entrances.map { TritonSearchRoute(it, emptyList())}
     val visitedRoutes = mutableMapOf((entranceCoords to emptySet<Key>()) to TritonSearchState(tritonSearchEntries, emptySet()))
     var currentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
     currentRoutes.putAll(visitedRoutes)
     while(currentRoutes.isNotEmpty()) {
+        println("visitedRoutes=${visitedRoutes.size} currentRoutes=${currentRoutes.size}")
         val nextCurrentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
         currentRoutes.values.forEach { tritonSearchState ->
             val routes = tritonSearchState.routes
@@ -489,7 +546,7 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
                         val nextPath = route.path + nextConnection
                         val nextKeys = if (nextPosition is Key) tritonSearchState.keys + nextPosition
                         else tritonSearchState.keys
-                        val nextRoute = TritonSearchStateEntry(nextPosition, nextPath)
+                        val nextRoute = TritonSearchRoute(nextPosition, nextPath)
                         val nextRoutes = routes.mapIndexed { i2, route ->
                             if (i == i2) nextRoute
                             else route
@@ -517,8 +574,8 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
     } else error("no solution found")
 }
 
-data class TritonSearchStateEntry(val position: Poi, val path: List<PoiConnection>)
-data class TritonSearchState(val routes: List<TritonSearchStateEntry>, val keys: Set<Key>)
+data class TritonSearchRoute(val position: Poi, val path: List<PoiConnection>)
+data class TritonSearchState(val routes: List<TritonSearchRoute>, val keys: Set<Key>)
 
 private fun findConnections(map: List<List<TritonCoord>>, pois: Set<Poi>): Map<Coord2, Set<PoiConnection>> {
     fun follow(from: TritonCoord, current: TritonCoord, length: Int): PoiConnection? {
@@ -562,9 +619,13 @@ fun List<List<TritonCoord>>.replaceIntersections(pois: Set<Poi>): List<List<Trit
     }
 }
 
-/** parseTritonMap doesn't distinguish intersections */
-private fun String.parseTritonMap(): List<List<TritonCoord>> = lines().mapIndexed { y, line ->
-    line.mapIndexed { x, c ->
+fun String.parseTritonMapToChars(): List<List<Char>> = lines().map { line ->
+    line.map { c -> c }
+}
+
+/** parseTritonMap doesn't distinguish intersections, after parse empty places must be identified as intersections */
+private fun String.parseTritonMap(): List<List<TritonCoord>> = parseTritonMapToChars().mapIndexed { y, row ->
+    row.mapIndexed { x, c ->
         when(c) {
             '#' -> Wall(x, y)
             '.' -> Empty(x, y)
