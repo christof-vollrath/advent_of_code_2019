@@ -532,10 +532,18 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
     val visitedRoutes = mutableMapOf((entranceCoords to emptySet<Key>()) to TritonSearchState(tritonSearchEntries, emptySet()))
     var currentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
     currentRoutes.putAll(visitedRoutes)
+    val solutionMap = mutableMapOf<List<Coord2>,TritonSearchState>()
     while(currentRoutes.isNotEmpty()) {
-        println("visitedRoutes=${visitedRoutes.size} currentRoutes=${currentRoutes.size}")
+        val currentSolutions = currentRoutes.values.filter { it.keys == allKeys }
+        currentSolutions.forEach { currentSolution ->
+            val currentPosition = currentSolution.routes.map { it.position.coord }
+            val foundSolution = solutionMap[currentPosition]
+            if (foundSolution == null || foundSolution.length > currentSolution.length)
+                solutionMap[currentPosition] = currentSolution
+        }
+        println("visitedRoutes=${visitedRoutes.size} currentRoutes=${currentRoutes.size} solutionMap=${solutionMap.size}")
         val nextCurrentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
-        currentRoutes.values.forEach { tritonSearchState ->
+        (currentRoutes - currentSolutions).values.forEach { tritonSearchState -> // Don't investigate more into solutions
             val routes = tritonSearchState.routes
             routes.forEachIndexed { i, route ->
                 val nextConnections = connections[route.position.coord] ?: emptySet()
@@ -567,15 +575,18 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
         }
         currentRoutes = nextCurrentRoutes
     }
-    val solutions = visitedRoutes.values.filter { it.keys == allKeys}
+    val solutions = solutionMap.values
     return if (solutions.isNotEmpty()) {
-        val solution = solutions.sortedBy { it.routes.map { it.path }.flatten().sumBy { it.dist } }.first()
+        val solution = solutions.sortedBy { it.length }.first()
         solution.routes.map { it.path }
     } else error("no solution found")
 }
 
-data class TritonSearchRoute(val position: Poi, val path: List<PoiConnection>)
-data class TritonSearchState(val routes: List<TritonSearchRoute>, val keys: Set<Key>)
+data class TritonSearchRoute(val position: Poi, val path: List<PoiConnection>) {
+    val length: Int
+        get() = path.sumBy { it.dist }
+}
+data class TritonSearchState(val routes: List<TritonSearchRoute>, val keys: Set<Key>, val length: Int = routes.sumBy { it.length })
 
 private fun findConnections(map: List<List<TritonCoord>>, pois: Set<Poi>): Map<Coord2, Set<PoiConnection>> {
     fun follow(from: TritonCoord, current: TritonCoord, length: Int): PoiConnection? {
