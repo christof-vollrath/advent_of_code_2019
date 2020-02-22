@@ -480,11 +480,32 @@ class Day18Spec : Spek({
                 }
             }
         }
+        describe("finde shortest path when entrances have to be replaced") {
+            val input = """
+                    #############
+                    #g#f.D#..h#l#
+                    #F###e#E###.#
+                    #dCba...BcIJ#
+                    #####.@.#####
+                    #nK.L...G...#
+                    #M###N#H###.#
+                    #o#m..#i#jk.#
+                    #############
+                
+            """.trimIndent()
+            it("should find the shortest path") {
+                val modifiedInput = input.replaceEntranceWithFour()
+                println("modifiedInput=\n$modifiedInput")
+                val paths = findShortestPath(modifiedInput)
+                val length = paths.flatten().sumBy { it.dist }
+                length `should equal` 72
+            }
+        }
         given("exercise") {
             val input = readResource("day18Input.txt")!!
-            val modifiedInput = input.replaceEntranceWithFour()
-            println("modifiedInput=\n$modifiedInput")
             it("should find the shortest path") {
+                val modifiedInput = input.replaceEntranceWithFour()
+                println("modifiedInput=\n$modifiedInput")
                 val paths = findShortestPath(modifiedInput)
                 val length = paths.flatten().sumBy { it.dist }
                 length `should equal` 0
@@ -541,33 +562,35 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
             if (foundSolution == null || foundSolution.length > currentSolution.length)
                 solutionMap[currentPosition] = currentSolution
         }
-        println("visitedRoutes=${visitedRoutes.size} currentRoutes=${currentRoutes.size} solutionMap=${solutionMap.size}")
+        println("visitedRoutes=${visitedRoutes.size} currentRoutes=${currentRoutes.size} solutionMap=${solutionMap.size} keys=${visitedRoutes.values.maxBy { it.keys.size }?.keys?.size }")
         val nextCurrentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchState>()
         (currentRoutes - currentSolutions).values.forEach { tritonSearchState -> // Don't investigate more into solutions
             val routes = tritonSearchState.routes
             routes.forEachIndexed { i, route ->
                 val nextConnections = connections[route.position.coord] ?: emptySet()
                 nextConnections.forEach { nextConnection ->
-                    val nextPosition = tritonMap.getOrNull(nextConnection.coord)
-                    if (nextPosition == null || nextPosition !is Poi) error("Connection pointing to wrong position $nextPosition")
-                    if (nextPosition !is Door || nextPosition.matchingKey(tritonSearchState.keys)) {
-                        val nextPath = route.path + nextConnection
-                        val nextKeys = if (nextPosition is Key) tritonSearchState.keys + nextPosition
-                        else tritonSearchState.keys
-                        val nextRoute = TritonSearchRoute(nextPosition, nextPath)
-                        val nextRoutes = routes.mapIndexed { i2, route ->
-                            if (i == i2) nextRoute
-                            else route
-                        }
-                        val nextPositionAndKeys = routes.mapIndexed { i2, route ->
-                            if (i == i2) nextPosition.coord
-                            else route.position.coord
-                        }  to nextKeys
-                        val tritonSearchState = TritonSearchState(nextRoutes, nextKeys)
-                        val visitedRoute = visitedRoutes[nextPositionAndKeys]
-                        if (visitedRoute == null) {
-                            visitedRoutes[nextPositionAndKeys] = tritonSearchState
-                            nextCurrentRoutes[nextPositionAndKeys] = tritonSearchState
+                    if (route.position is Key || nextConnection.coord != route.position.coord) { // Optimization: going back makes only sense for keys
+                        val nextPosition = tritonMap.getOrNull(nextConnection.coord)
+                        if (nextPosition == null || nextPosition !is Poi) error("Connection pointing to wrong position $nextPosition")
+                        if (nextPosition !is Door || nextPosition.matchingKey(tritonSearchState.keys)) {
+                            val nextPath = route.path + nextConnection
+                            val nextKeys = if (nextPosition is Key) tritonSearchState.keys + nextPosition
+                            else tritonSearchState.keys
+                            val nextRoute = TritonSearchRoute(nextPosition, nextPath)
+                            val nextRoutes = routes.mapIndexed { i2, route ->
+                                if (i == i2) nextRoute
+                                else route
+                            }
+                            val nextPositionsAndKeys = routes.mapIndexed { i2, route ->
+                                if (i == i2) nextPosition.coord
+                                else route.position.coord
+                            }  to nextKeys
+                            val tritonSearchState = TritonSearchState(nextRoutes, nextKeys)
+                            val visitedRoute = visitedRoutes[nextPositionsAndKeys]
+                            if (visitedRoute == null) {
+                                visitedRoutes[nextPositionsAndKeys] = tritonSearchState
+                                nextCurrentRoutes[nextPositionsAndKeys] = tritonSearchState
+                            }
                         }
                     }
                 }
