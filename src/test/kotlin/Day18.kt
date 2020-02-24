@@ -3,6 +3,7 @@ import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.xit
 import org.jetbrains.spek.data_driven.data
 import org.jetbrains.spek.data_driven.on as onData
 
@@ -320,7 +321,7 @@ class Day18Spec : Spek({
             val pois = tritonMap.findPois()
             it("should have found all points of interests") {
                 pois `should equal` setOf(
-                    Key('b', 1, 1), Door('A', 3, 1), Intersection(4, 1), Entrance(5, 1), Key('a', 7, 1), Intersection(4, 3)
+                    Key('b', 1, 1), Door('A', 3, 1), Intersection(4, 1), Entrance(5, 1), Key('a', 7, 1), Intersection(4, 3), DeadEnd(x=1, y=3), DeadEnd(x=7, y=3)
                 )
             }
         }
@@ -341,7 +342,8 @@ class Day18Spec : Spek({
                     Coord2(1, 1) to setOf(PoiConnection(Coord2(3, 1), 2)),
                     Coord2(3, 1) to setOf(PoiConnection(Coord2(1, 1), 2), PoiConnection(Coord2(5, 1), 2), PoiConnection(Coord2(3, 3), 2)),
                     Coord2(5, 1) to setOf(PoiConnection(Coord2(3, 1), 2), PoiConnection(Coord2(7, 3), 4)),
-                    Coord2(3, 3) to setOf(PoiConnection(Coord2(3, 1), 2), PoiConnection(Coord2(5, 3), 2)),
+                    Coord2(3, 3) to setOf(PoiConnection(Coord2(3, 1), 2), PoiConnection(Coord2(1, 3), 2), PoiConnection(Coord2(5, 3), 2)),
+                    Coord2(1, 3) to setOf(PoiConnection(Coord2(3, 3), 2)),
                     Coord2(5, 3) to setOf(PoiConnection(Coord2(3, 3), 2)),
                     Coord2(7, 3) to setOf(PoiConnection(Coord2(5, 1), 4))
                 )
@@ -491,7 +493,6 @@ class Day18Spec : Spek({
                     #M###N#H###.#
                     #o#m..#i#jk.#
                     #############
-                
             """.trimIndent()
             it("should find the shortest path") {
                 val modifiedInput = input.replaceEntranceWithFour()
@@ -501,9 +502,25 @@ class Day18Spec : Spek({
                 length `should equal` 72
             }
         }
+        describe("find dead end") {
+            given("a simple map with a dead end") {
+                val input = """
+                    #############
+                    #@.a........#
+                    #############
+                """.trimIndent()
+                it("should find the dead end") {
+                    val tritonMap = input.parseTritonMap()
+                    val pois = tritonMap.findPois()
+                    pois `should equal` setOf(
+                        Entrance(1, 1), Key('a', 3, 1), DeadEnd(11, 1)
+                    )
+                }
+            }
+        }
         given("exercise") {
             val input = readResource("day18Input.txt")!!
-            it("should find the shortest path") {
+            xit("should find the shortest path") {
                 val modifiedInput = input.replaceEntranceWithFour()
                 println("modifiedInput=\n$modifiedInput")
                 val paths = findShortestPath(modifiedInput)
@@ -637,8 +654,11 @@ data class PoiConnection(val coord: Coord2, val dist: Int)
 fun List<List<TritonCoord>>.findPois(): Set<Poi> = flatMap { rows ->
     rows.mapNotNull { tritonCoord ->
         if (tritonCoord is Poi) tritonCoord
-        else if (tritonCoord is Empty && tritonCoord.countEmpty(this) >= 3) Intersection(tritonCoord.x, tritonCoord.y)
+        else if (tritonCoord is Empty) {
+            if (tritonCoord.countEmpty(this) >= 3) Intersection(tritonCoord.x, tritonCoord.y)
+            else if (tritonCoord.countEmpty(this) == 1) DeadEnd(tritonCoord.x, tritonCoord.y)
             else null
+        } else null
     }
 }.toSet()
 
@@ -696,3 +716,4 @@ data class Door(val c: Char, val x: Int, val y: Int) : Poi(Coord2(x, y)) {
     fun matchingKey(keys: Set<Key>) = keys.any { it.c == c.toLowerCase() }
 }
 data class Intersection(val x: Int, val y: Int) : Poi(Coord2(x, y))
+data class DeadEnd(val x: Int, val y: Int) : Poi(Coord2(x, y))
