@@ -502,7 +502,7 @@ class Day18Spec : Spek({
                 length `should equal` 72
             }
         }
-        describe("find dead end") {
+        describe("handle dead ends") {
             given("a simple map with a dead end") {
                 val input = """
                     #############
@@ -514,6 +514,47 @@ class Day18Spec : Spek({
                     val pois = tritonMap.findPois()
                     pois `should equal` setOf(
                         Entrance(1, 1), Key('a', 3, 1), DeadEnd(11, 1)
+                    )
+                }
+                it("should remove the dead end from pois") {
+                    val tritonMapWithoutIntersections = input.parseTritonMap()
+                    val poisWithDeadEnds = tritonMapWithoutIntersections.findPois()
+                    val tritonMap = tritonMapWithoutIntersections.replaceIntersections(poisWithDeadEnds)
+                    val connectionsWithDeadEnds = findConnections(tritonMap, poisWithDeadEnds)
+                    val (pois, connections) = removeDeadEnds(poisWithDeadEnds, connectionsWithDeadEnds)
+                    pois `should equal` setOf(
+                        Entrance(1, 1), Key('a', 3, 1)
+                    )
+                    connections `should equal` mapOf(
+                        Coord2(1, 1) to setOf(PoiConnection(Coord2(3, 1), 2)),
+                        Coord2(3, 1) to setOf(PoiConnection(Coord2(1, 1), 2))
+                    )
+                }
+            }
+            given("a map with many dead ends") {
+                val input = """
+                    #############
+                    #@.a........#
+                    #########.#.#
+                    #.###.#.#.#.#
+                    #.....A...#.#
+                    #############
+                """.trimIndent()
+                it("should remove the dead end from pois") {
+                    val tritonMapWithoutIntersections = input.parseTritonMap()
+                    val poisWithDeadEnds = tritonMapWithoutIntersections.findPois()
+                    val tritonMap = tritonMapWithoutIntersections.replaceIntersections(poisWithDeadEnds)
+                    val connectionsWithDeadEnds = findConnections(tritonMap, poisWithDeadEnds)
+                    val (pois, connections) = removeDeadEnds(poisWithDeadEnds, connectionsWithDeadEnds)
+                    pois `should equal` setOf(
+                        Entrance(1, 1), Key('a', 3, 1), Intersection(9, 1), Door('A', 6, 4), Intersection(5, 4), Intersection(7, 4)
+                    )
+                    connections `should equal` mapOf(
+                        Coord2(1, 1) to setOf(PoiConnection(Coord2(3, 1), 2)),
+                        Coord2(3, 1) to setOf(PoiConnection(Coord2(1, 1), 2), PoiConnection(Coord2(9, 1), 6)),
+                        Coord2(9, 1) to setOf(PoiConnection(Coord2(3, 1), 6), PoiConnection(Coord2(7, 4), 5)),
+                        Coord2(6, 4) to setOf(PoiConnection(Coord2(7, 4), 1)),
+                        Coord2(7, 4) to setOf(PoiConnection(Coord2(6, 4), 1), PoiConnection(Coord2(9, 1), 5))
                     )
                 }
             }
@@ -530,6 +571,30 @@ class Day18Spec : Spek({
         }
     }
 })
+
+fun removeDeadEnds(poisWithDeadEnds: Set<Poi>, connectionsWithDeadEnds: Map<Coord2, Set<PoiConnection>>): Pair<Set<Poi>, Map<Coord2, Set<PoiConnection>>> {
+    val deadEnds = poisWithDeadEnds.filter { it is DeadEnd }.map { it.coord }.toMutableSet()
+    val connections = connectionsWithDeadEnds.toMutableMap()
+    var moreDeadEndsFound = false
+    do {
+        deadEnds.forEach {
+            connections.remove(it)
+        }
+        moreDeadEndsFound = false
+        connections.forEach { (coord, connectedTo) ->
+            if(connectedTo.all { deadEnds.contains(it.coord) }) {
+                deadEnds.add(coord)
+                moreDeadEndsFound = true
+            }
+        }
+    } while(moreDeadEndsFound)
+    val pois = poisWithDeadEnds.filter { ! deadEnds.contains(it.coord) }.toSet()
+    val connectionsWithoutDeadEnd = connections.map {  (coord, connectedTo) ->
+        val connectedToWithoutDeadEnd = connectedTo.filter { ! deadEnds.contains(it.coord) }.toSet()
+        coord to connectedToWithoutDeadEnd
+    }.toMap()
+    return pois to connectionsWithoutDeadEnd
+}
 
 fun String.replaceEntranceWithFour(): String {
     val splitedString = parseTritonMapToChars()
@@ -651,16 +716,17 @@ private fun findConnections(map: List<List<TritonCoord>>, pois: Set<Poi>): Map<C
 
 data class PoiConnection(val coord: Coord2, val dist: Int)
 
-fun List<List<TritonCoord>>.findPois(): Set<Poi> = flatMap { rows ->
-    rows.mapNotNull { tritonCoord ->
-        if (tritonCoord is Poi) tritonCoord
-        else if (tritonCoord is Empty) {
-            if (tritonCoord.countEmpty(this) >= 3) Intersection(tritonCoord.x, tritonCoord.y)
-            else if (tritonCoord.countEmpty(this) == 1) DeadEnd(tritonCoord.x, tritonCoord.y)
-            else null
-        } else null
-    }
-}.toSet()
+fun List<List<TritonCoord>>.findPois(): Set<Poi> =
+    flatMap { rows ->
+        rows.mapNotNull { tritonCoord ->
+            if (tritonCoord is Poi) tritonCoord
+            else if (tritonCoord is Empty) {
+                if (tritonCoord.countEmpty(this) >= 3) Intersection(tritonCoord.x, tritonCoord.y)
+                else if (tritonCoord.countEmpty(this) == 1) DeadEnd(tritonCoord.x, tritonCoord.y)
+                else null
+            } else null
+        }
+    }.toSet()
 
 
 fun List<List<TritonCoord>>.replaceIntersections(pois: Set<Poi>): List<List<TritonCoord>> {
