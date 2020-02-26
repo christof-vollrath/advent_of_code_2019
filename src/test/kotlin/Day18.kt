@@ -547,7 +547,7 @@ class Day18Spec : Spek({
                     val connectionsWithDeadEnds = findConnections(tritonMap, poisWithDeadEnds)
                     val (pois, connections) = removeDeadEnds(poisWithDeadEnds, connectionsWithDeadEnds)
                     pois `should equal` setOf(
-                        Entrance(1, 1), Key('a', 3, 1), Intersection(9, 1), Door('A', 6, 4), Intersection(5, 4), Intersection(7, 4)
+                        Entrance(1, 1), Key('a', 3, 1), Intersection(9, 1), Door('A', 6, 4), Intersection(7, 4)
                     )
                     connections `should equal` mapOf(
                         Coord2(1, 1) to setOf(PoiConnection(Coord2(3, 1), 2)),
@@ -573,19 +573,29 @@ class Day18Spec : Spek({
 })
 
 fun removeDeadEnds(poisWithDeadEnds: Set<Poi>, connectionsWithDeadEnds: Map<Coord2, Set<PoiConnection>>): Pair<Set<Poi>, Map<Coord2, Set<PoiConnection>>> {
+    val poiMap = poisWithDeadEnds.map { it.coord to it }.toMap()
     val deadEnds = poisWithDeadEnds.filter { it is DeadEnd }.map { it.coord }.toMutableSet()
     val connections = connectionsWithDeadEnds.toMutableMap()
-    var moreDeadEndsFound = false
+    var moreDeadEndsFound: Boolean
     do {
         deadEnds.forEach {
             connections.remove(it)
         }
         moreDeadEndsFound = false
         connections.forEach { (coord, connectedTo) ->
+            val poi = poiMap[coord]
+            if (poi is Intersection) {
+                if (connectedTo.filter { ! deadEnds.contains(it.coord) }.size <= 1) { // Intersection with only one way not leading to a dead end is itself a dead end
+                    deadEnds.add(coord)
+                    moreDeadEndsFound = true
+                }
+            }
+            /*
             if(connectedTo.all { deadEnds.contains(it.coord) }) {
                 deadEnds.add(coord)
                 moreDeadEndsFound = true
             }
+            */
         }
     } while(moreDeadEndsFound)
     val pois = poisWithDeadEnds.filter { ! deadEnds.contains(it.coord) }.toSet()
@@ -667,11 +677,11 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
                                 if (i == i2) nextPosition.coord
                                 else route.position.coord
                             }  to nextKeys
-                            val tritonSearchState = TritonSearchState(nextRoutes, nextKeys)
+                            val nextTritonSearchState = TritonSearchState(nextRoutes, nextKeys)
                             val visitedRoute = visitedRoutes[nextPositionsAndKeys]
                             if (visitedRoute == null) {
-                                visitedRoutes[nextPositionsAndKeys] = tritonSearchState
-                                nextCurrentRoutes[nextPositionsAndKeys] = tritonSearchState
+                                visitedRoutes[nextPositionsAndKeys] = nextTritonSearchState
+                                nextCurrentRoutes[nextPositionsAndKeys] = nextTritonSearchState
                             }
                         }
                     }
