@@ -1,3 +1,4 @@
+import org.amshove.kluent.`should be greater than`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -432,11 +433,13 @@ class Day18Spec : Spek({
                     #############
                     #DcBa.#.GhKl#
                     #.###@#@#I###
-                    #e#d#####j#k#
+                    #e#######j###
+                    #############
+                    ###d#######k#
                     ###C#@#@###J#
                     #fEbA.#.FgHi#
                     #############
-                """.trimIndent(), 32),
+                """.trimIndent(), 32), // Example modified so that it can be quatered
                 data("""
                     #############
                     #g#f.D#..h#l#
@@ -457,6 +460,7 @@ class Day18Spec : Spek({
                 }
                 val quaters = input.quater()
                 val quatersSolutions = quaters.map { findShortestPath(it, ignoreUnknownKeys = true) }
+                println(quatersSolutions.map { it.size })
                 quatersSolutions.forEach { println(); println(it) }
                 val quaterPaths = quatersSolutions.map { it.findBestSolution().first() } // TODO findShortestPath currently searches for parallel pathes, here we have only one
                 val quaterLength = quaterPaths.flatten().sumBy { it.dist }
@@ -618,6 +622,9 @@ class Day18Spec : Spek({
             }
             val solutions = input4.map { findShortestPath(it, true) }
             it("should have found solutions for every quater") {
+                solutions.forEach {
+                    it.size `should be greater than` 0
+                }
                 println(solutions.map { it.size })
             }
 
