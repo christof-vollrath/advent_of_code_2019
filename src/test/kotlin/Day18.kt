@@ -411,7 +411,7 @@ class Day18Spec : Spek({
     }
     describe("part 2") {
         describe("find shortest steps with four entrances") {
-            val testData = arrayOf(
+            val testData = arrayOf(/*
                 data("""
                     #######
                     #a.#Cd#
@@ -451,16 +451,16 @@ class Day18Spec : Spek({
                     #M###N#H###.#
                     #o#m..#i#jk.#
                     #############
-                """.trimIndent(), 72),
+                """.trimIndent(), 72),*/
                 data("""
                     #############
-                    #.....#.....#
+                    #.....#######
                     #.###.#######
-                    #..Ab@#@B...#
+                    #..aC@#@b...#
                     #############
-                    #...D@#@E...#
+                    #...c@#@d...#
                     #############
-                    #...........#
+                    #############
                     #############
                 """.trimIndent(), 5)
             )
@@ -473,7 +473,7 @@ class Day18Spec : Spek({
                 val quaterPaths = findShortestPathQuatered(input)
                 val quaterLength = quaterPaths.flatten().sumBy { it.dist }
                 it("should have found the same path as the sum of quater solutions") {
-                    quaterLength `should equal` length
+                    quaterLength `should equal` expected
                 }
             }
         }
@@ -664,8 +664,8 @@ class Day18Spec : Spek({
             it("should be splittet into quarters") {
                 input4.size `should equal` 4
             }
-            val solutions = input4.map { findShortestPath(it, true) }
             it("should have found solutions for every quater") {
+                val solutions = input4.map { findShortestPath(it, true) }
                 solutions.forEach {
                     it.size `should be greater than` 0
                 }
@@ -845,6 +845,7 @@ fun findShortestPathQuatered(input: String): List<List<PoiConnection>> {
     val tritonMapDatas = quaters.map { it.parseTritonMapData() }
     val quatersSolutions = tritonMapDatas.map { findShortestSteps(it.tritonMap, it.pois, it.connections, ignoreUnknownKeys = true) }
     println(quatersSolutions.map { it.size })
+    println(quatersSolutions.map { it.map { it.routes}})
     val combinedSolutions = combine(quatersSolutions)
     val sortedSolutions = combinedSolutions.sortedBy { solution ->
         solution.sumBy { quaterSolution -> quaterSolution.length }
