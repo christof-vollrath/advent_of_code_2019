@@ -6,6 +6,7 @@ import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 import org.jetbrains.spek.api.dsl.xit
 import org.jetbrains.spek.data_driven.data
+import kotlin.math.PI
 import org.jetbrains.spek.data_driven.on as onData
 
 
@@ -450,7 +451,18 @@ class Day18Spec : Spek({
                     #M###N#H###.#
                     #o#m..#i#jk.#
                     #############
-                """.trimIndent(), 72)
+                """.trimIndent(), 72),
+                data("""
+                    #############
+                    #.....#.....#
+                    #.###.#######
+                    #..Ab@#@B...#
+                    #############
+                    #...D@#@E...#
+                    #############
+                    #...........#
+                    #############
+                """.trimIndent(), 5)
             )
             onData("triton map %s ", with = *testData) { input, expected ->
                 val paths = findShortestPath(input).findBestSolution()
@@ -458,11 +470,7 @@ class Day18Spec : Spek({
                 it("should have found the shortest path") {
                     length `should equal` expected
                 }
-                val quaters = input.quater()
-                val quatersSolutions = quaters.map { findShortestPath(it, ignoreUnknownKeys = true) }
-                println(quatersSolutions.map { it.size })
-                quatersSolutions.forEach { println(); println(it) }
-                val quaterPaths = quatersSolutions.map { it.findBestSolution().first() } // TODO findShortestPath currently searches for parallel pathes, here we have only one
+                val quaterPaths = findShortestPathQuatered(input)
                 val quaterLength = quaterPaths.flatten().sumBy { it.dist }
                 it("should have found the same path as the sum of quater solutions") {
                     quaterLength `should equal` length
@@ -613,6 +621,42 @@ class Day18Spec : Spek({
                 }
             }
         }
+        describe("combine lists") {
+            given("a simle lists") {
+                val list1 = listOf("a", "b")
+                it("should combine elements with empty") {
+                    combine(list1) `should equal` listOf(
+                        listOf("a"),
+                        listOf("b")
+                    )
+                }
+            }
+            given("three lists") {
+                val list1 = listOf("a", "b")
+                val list2 = listOf("1", "2", "3")
+                val list3 = listOf(".")
+
+                it("should find all combinations of elements") {
+                    combine(list1, list2, list3) `should equal` listOf(
+                        listOf("a", "1", "."),
+                        listOf("a", "2", "."),
+                        listOf("a", "3", "."),
+                        listOf("b", "1", "."),
+                        listOf("b", "2", "."),
+                        listOf("b", "3", ".")
+                    )
+                }
+            }
+            given("more lists") {
+                val list1 = List(5) { it }
+                val list2 = List(10) { it }
+                val list3 = List(40) { it }
+                val list4 = List(20) { it }
+                it("should combine all lists") {
+                    combine(list1, list2, list3, list4).size `should equal` 5 * 10 * 40 * 20
+                }
+            }
+        }
         given("exercise") {
             val input = readResource("day18Input.txt")!!
             val modifiedInput = input.replaceEntranceWithFour()
@@ -628,15 +672,30 @@ class Day18Spec : Spek({
                 println(solutions.map { it.size })
             }
 
-            xit("should find the shortest path") {
+            it("should find the shortest path") {
                 println("modifiedInput=\n$modifiedInput")
-                val paths = findShortestPath(modifiedInput).findBestSolution()
+                val paths = findShortestPathQuatered(modifiedInput)
                 val length = paths.flatten().sumBy { it.dist }
-                length `should equal` 0
+                length `should equal` 1876
             }
         }
     }
 })
+
+fun <T> combine(vararg lists: List<T>): List<List<T>> = combine(lists.toList())
+
+fun <T> combine(lists: List<List<T>>): List<List<T>> {
+    if (lists.isEmpty()) throw error("nothing to combine")
+    else if (lists.size == 1) return lists[0].map { listOf(it) }
+    else {
+        val restCombined = combine(lists.drop(1))
+        return lists[0].flatMap {element ->
+            restCombined.map {rest ->
+                listOf(element) + rest
+            }
+        }
+    }
+}
 
 fun removeDeadEnds(poisWithDeadEnds: Set<Poi>, connectionsWithDeadEnds: Map<Coord2, Set<PoiConnection>>): Pair<Set<Poi>, Map<Coord2, Set<PoiConnection>>> {
     val poiMap = poisWithDeadEnds.map { it.coord to it }.toMap()
@@ -708,18 +767,25 @@ fun String.quater(): List<String> {
 }
 
 fun findShortestPath(input: String, ignoreUnknownKeys: Boolean = false): Collection<TritonSearchState> {
-    val tritonMapWithoutIntersections = input.parseTritonMap()
+    val tritonMapData = input.parseTritonMapData()
+    val solutions = findShortestSteps(tritonMapData.tritonMap, tritonMapData.pois, tritonMapData.connections, ignoreUnknownKeys)
+    return solutions
+}
+
+fun String.parseTritonMapData(): TritonMapData {
+    val tritonMapWithoutIntersections = parseTritonMap()
     val pois = tritonMapWithoutIntersections.findPois()
     val tritonMap = tritonMapWithoutIntersections.replaceIntersections(pois)
     val connections = findConnections(tritonMap, pois)
     val (poisWithoutDeadEnds, connectionsWithoutDeadEnds) = removeDeadEnds(pois, connections)
     println("pois reduced from ${pois.size} to ${poisWithoutDeadEnds.size} by removing dead ends")
-
-    val solutions = findShortestSteps(tritonMap, poisWithoutDeadEnds, connectionsWithoutDeadEnds, ignoreUnknownKeys)
-    return solutions
+    val tritonMapData = TritonMapData(tritonMap, poisWithoutDeadEnds, connectionsWithoutDeadEnds)
+    return tritonMapData
 }
 
-fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>, ignoreUnknownKeys: Boolean): Collection<TritonSearchState> {
+data class TritonMapData(val tritonMap: List<List<TritonCoord>>, val pois: Set<Poi>, val connections: Map<Coord2, Set<PoiConnection>>)
+
+fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>, ignoreUnknownKeys: Boolean): List<TritonSearchState> {
     val entrances = pois.filterIsInstance<Entrance>()
     val allKeys = pois.filterIsInstance<Key>().toSet()
     val entranceCoords = entrances.map { it.coord }
@@ -770,7 +836,61 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
         }
         currentRoutes = nextCurrentRoutes
     }
-    return solutionMap.values
+    return solutionMap.values.toList()
+}
+
+
+fun findShortestPathQuatered(input: String): List<List<PoiConnection>> {
+    val quaters = input.quater()
+    val tritonMapDatas = quaters.map { it.parseTritonMapData() }
+    val quatersSolutions = tritonMapDatas.map { findShortestSteps(it.tritonMap, it.pois, it.connections, ignoreUnknownKeys = true) }
+    println(quatersSolutions.map { it.size })
+    val combinedSolutions = combine(quatersSolutions)
+    val sortedSolutions = combinedSolutions.sortedBy { solution ->
+        solution.sumBy { quaterSolution -> quaterSolution.length }
+    }
+    return sortedSolutions.asSequence().filter { tritonSearchStates ->
+        val pois = tritonMapDatas.map { it.pois }
+        val paths = tritonSearchStates.map { it.routes.first().path }
+        checkPathInQuateredMap(pois, paths)
+    }.first().map { it.routes.first().path }
+}
+
+fun checkPathInQuateredMap(pois: List<Set<Poi>>, paths: List<List<PoiConnection>>): Boolean {
+    fun solutionFound(positions: List<Int>): Boolean {
+        positions.forEachIndexed { index, pos ->
+            if (paths[index].size - 1 != pos) return false
+        }
+        return true
+    }
+    val poiMaps = pois.map {poi ->
+        poi.map { it.coord to it }.toMap()
+    }
+    val currentPositions = List(paths.size) { 0 }.toMutableList()
+    val keys = mutableSetOf<Key>()
+    while (!solutionFound(currentPositions)) {
+        currentPositions.forEachIndexed { index, position ->
+            val path = paths[index]
+            val coord = path[position].coord
+            val poiMap = poiMaps[index]
+            val poi = poiMap[coord]!!
+            if (poi is Key) keys.add(poi)
+        }
+        var moved = false
+        currentPositions.forEachIndexed { index, position ->
+            val path = paths[index]
+            val coord = path[position].coord
+            val poiMap = poiMaps[index]
+            val poi = poiMap[coord]!!
+            if (poi !is Door || poi.matchingKey(keys))
+                if (position < path.size - 1) {
+                    currentPositions[index] = position + 1
+                    moved = true
+                }
+        }
+        if (! moved) return false
+    }
+    return true
 }
 
 fun Collection<TritonSearchState>.findBestSolution() = if (isNotEmpty()) {
