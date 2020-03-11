@@ -663,7 +663,7 @@ class Day18Spec : Spek({
 
             }
         }
-        describe("finde shortest path when entrances have to be replaced") {
+        describe("find shortest path when entrances have to be replaced") {
             val input = """
                     #############
                     #g#f.D#..h#l#
