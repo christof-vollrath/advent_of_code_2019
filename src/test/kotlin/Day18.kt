@@ -403,6 +403,54 @@ class Day18Spec : Spek({
                 }
             }
         }
+        describe("find shortest steps ignoring unkonwn keys") {
+            val testData = arrayOf(
+                data("""
+                    #########
+                    #b.A.@.a#
+                    #########
+                """.trimIndent(), 8),
+                data("""
+                    ####
+                    #Cd#
+                    #@##
+                    ####
+                """.trimIndent(), 2),
+                data("""
+                    #######
+                    #.....#
+                    #.#####
+                    #..aC@#
+                    #######
+                """.trimIndent(), 2),
+                data("""
+                    #######
+                    #.....#
+                    #.###.#
+                    #..aC@#
+                    #######
+                """.trimIndent(), 2),
+                data("""
+                    #######
+                    #.....#
+                    #.###.#
+                    #..a#@#
+                    #######
+                """.trimIndent(), 10)
+            )
+            onData("triton map %s ", with = *testData) { input, expected ->
+                val path = findShortestPath(input, ignoreUnknownKeys = true).findBestSolution()
+                val length1 = path.sumBy { it.dist }
+                it("should have found the shortest path") {
+                    length1 `should equal` expected
+                }
+                val paths = findShortestPathMultiEntrances(input, ignoreUnknownKeys = true).findBestSolutionMultiEntrances()
+                val length2 = paths.flatten().sumBy { it.dist }
+                it("should have found the shortest path with multi entrances function") {
+                    length2 `should equal` expected
+                }
+            }
+        }
         given("exercise") {
             val input = readResource("day18Input.txt")!!
             it("should find the shortest path") {
@@ -418,7 +466,56 @@ class Day18Spec : Spek({
         }
     }
     describe("part 2") {
-        describe("find shortest steps with four entrances") {
+        describe("find shortest steps with four entrances combining all pathes from entrances") {
+            val testData = arrayOf(
+                data("""
+                    #######
+                    #a.#Cd#
+                    ##@#@##
+                    #######
+                    ##@#@##
+                    #cB#Ab#
+                    #######
+                """.trimIndent(), 8),
+                data("""
+                    ###############
+                    #d.ABC.#.....a#
+                    ######@#@######
+                    ###############
+                    ######@#@######
+                    #b.....#.....c#
+                    ###############
+                """.trimIndent(), 24),
+                data("""
+                    #############
+                    #DcBa.#.GhKl#
+                    #.###@#@#I###
+                    #e#d#####j#k#
+                    ###C#@#@###J#
+                    #fEbA.#.FgHi#
+                    #############
+                """.trimIndent(), 32),
+                data("""
+                    #############
+                    #g#f.D#..h#l#
+                    #F###e#E###.#
+                    #dCba@#@BcIJ#
+                    #############
+                    #nK.L@#@G...#
+                    #M###N#H###.#
+                    #o#m..#i#jk.#
+                    #############
+                """.trimIndent(), 72)
+            )
+            onData("triton map %s ", with = *testData) { input, expected ->
+                val paths = findShortestPathMultiEntrances(input).findBestSolutionMultiEntrances()
+                val length = paths.flatten().sumBy { it.dist }
+                it("should have found the shortest path") {
+                    length `should equal` expected
+                }
+            }
+        }
+        describe("find shortest steps with four entrances by quatering the map") {
             val testData = arrayOf(
                 data("""
                     #######
@@ -449,6 +546,7 @@ class Day18Spec : Spek({
                     #fEbA.#.FgHi#
                     #############
                 """.trimIndent(), 32), // Example modified so that it can be quatered
+                /*
                 data("""
                     #############
                     #g#f.D#..h#l#
@@ -459,7 +557,7 @@ class Day18Spec : Spek({
                     #M###N#H###.#
                     #o#m..#i#jk.#
                     #############
-                """.trimIndent(), 72),
+                """.trimIndent(), 72), */ // In this case the optimal solution for quaters can not be combined to get a solution for the whole
                 data("""
                     #############
                     #.....#######
@@ -470,14 +568,27 @@ class Day18Spec : Spek({
                     #############
                     #############
                     #############
-                """.trimIndent(), 5)
+                """.trimIndent(), 5),
+                data("""
+                    #############
+                    #..aC@#@Db..#
+                    #############
+                    #..cB@#@d...#
+                    #############
+                """.trimIndent(), 7),
+                data("""
+                    #############
+                    #....e#f#####
+                    #####B#C#####
+                    #..aC@#@Db..#
+                    #############
+                    #..cB@#@d...#
+                    #####G##F####
+                    #####h##g####
+                    #############
+                """.trimIndent(), 21)
             )
             onData("triton map %s ", with = *testData) { input, expected ->
-                val paths = findShortestPathMultiEntrances(input).findBestSolutionMultiEntrances()
-                val length = paths.flatten().sumBy { it.dist }
-                it("should have found the shortest path") {
-                    length `should equal` expected
-                }
                 val quaterPaths = findShortestPathQuatered(input)
                 val quaterLength = quaterPaths.flatten().sumBy { it.dist }
                 it("should have found the same path as the sum of quater solutions") {
@@ -782,6 +893,7 @@ fun findShortestPath(input: String, ignoreUnknownKeys: Boolean = false): Collect
 fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>, ignoreUnknownKeys: Boolean): List<TritonSearchState> {
     val entrance = pois.filterIsInstance<Entrance>().first()
     val allKeys = pois.filterIsInstance<Key>().toSet()
+    println("allKeys=$allKeys")
     val entranceCoord = entrance.coord
     val visitedRoutes = mutableMapOf((entranceCoord to emptySet<Key>()) to TritonSearchState(TritonSearchRoute(entrance, emptyList()), emptySet()))
     var currentRoutes = mutableMapOf<Pair<Coord2,Set<Key>>,TritonSearchState>()
@@ -795,7 +907,6 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
             if (foundSolution == null || foundSolution.length > currentSolution.length)
                 solutionMap[currentPosition] = currentSolution
         }
-        println("visitedRoutes=${visitedRoutes.size} currentRoutes=${currentRoutes.size} solutionMap=${solutionMap.size} keys=${visitedRoutes.values.maxBy { it.keys.size }?.keys?.size }")
         val nextCurrentRoutes = mutableMapOf<Pair<Coord2,Set<Key>>,TritonSearchState>()
         (currentRoutes - currentSolutions).values.forEach { tritonSearchState -> // Don't investigate more into solutions
             val route = tritonSearchState.route
@@ -811,7 +922,7 @@ fun findShortestSteps(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connec
                     val nextTritonSearchState = TritonSearchState(nextRoute, nextKeys)
                     val nextPositionsAndKey = nextPosition.coord to nextKeys
                     val visitedRoute = visitedRoutes[nextPositionsAndKey]
-                    if (visitedRoute == null) {
+                    if (visitedRoute == null || visitedRoute.length > nextTritonSearchState.length) {
                         visitedRoutes[nextPositionsAndKey] = nextTritonSearchState
                         nextCurrentRoutes[nextPositionsAndKey] = nextTritonSearchState
                     }
@@ -844,6 +955,11 @@ fun findShortestPathMultiEntrances(input: String, ignoreUnknownKeys: Boolean = f
     return solutions
 }
 
+/**
+ * Fallows paths from different entrances in all its combination.
+ * For a long map this result in a bad performance.
+ * Luckily the triton map of exercise part 2 can be split in 4 parts and solved independently.
+ */
 fun findShortestStepsMultiEntrances(tritonMap: List<List<TritonCoord>>, pois: Set<Poi>, connections: Map<Coord2, Set<PoiConnection>>, ignoreUnknownKeys: Boolean): List<TritonSearchStateMultiEntrances> {
     val entrances = pois.filterIsInstance<Entrance>()
     val allKeys = pois.filterIsInstance<Key>().toSet()
@@ -861,7 +977,6 @@ fun findShortestStepsMultiEntrances(tritonMap: List<List<TritonCoord>>, pois: Se
             if (foundSolution == null || foundSolution.length > currentSolution.length)
                 solutionMap[currentPosition] = currentSolution
         }
-        println("visitedRoutes=${visitedRoutes.size} currentRoutes=${currentRoutes.size} solutionMap=${solutionMap.size} keys=${visitedRoutes.values.maxBy { it.keys.size }?.keys?.size }")
         val nextCurrentRoutes = mutableMapOf<Pair<List<Coord2>,Set<Key>>,TritonSearchStateMultiEntrances>()
         (currentRoutes - currentSolutions).values.forEach { tritonSearchState -> // Don't investigate more into solutions
             val routes = tritonSearchState.routes
@@ -885,7 +1000,7 @@ fun findShortestStepsMultiEntrances(tritonMap: List<List<TritonCoord>>, pois: Se
                         }  to nextKeys
                         val nextTritonSearchState = TritonSearchStateMultiEntrances(nextRoutes, nextKeys)
                         val visitedRoute = visitedRoutes[nextPositionsAndKeys]
-                        if (visitedRoute == null) {
+                        if (visitedRoute == null || visitedRoute.length > nextTritonSearchState.length) {
                             visitedRoutes[nextPositionsAndKeys] = nextTritonSearchState
                             nextCurrentRoutes[nextPositionsAndKeys] = nextTritonSearchState
                         }
@@ -902,18 +1017,18 @@ fun findShortestStepsMultiEntrances(tritonMap: List<List<TritonCoord>>, pois: Se
 fun findShortestPathQuatered(input: String): List<List<PoiConnection>> {
     val quaters = input.quater()
     val tritonMapDatas = quaters.map { it.parseTritonMapData() }
-    val quatersSolutions = tritonMapDatas.map { findShortestStepsMultiEntrances(it.tritonMap, it.pois, it.connections, ignoreUnknownKeys = true) }
+    val quatersSolutions = tritonMapDatas.map { findShortestSteps(it.tritonMap, it.pois, it.connections, ignoreUnknownKeys = true) }
     println(quatersSolutions.map { it.size })
-    println(quatersSolutions.map { it.map { it.routes}})
+    println(quatersSolutions.map { it })
     val combinedSolutions = combine(quatersSolutions)
     val sortedSolutions = combinedSolutions.sortedBy { solution ->
         solution.sumBy { quaterSolution -> quaterSolution.length }
     }
     return sortedSolutions.asSequence().filter { tritonSearchStates ->
         val pois = tritonMapDatas.map { it.pois }
-        val paths = tritonSearchStates.map { it.routes.first().path }
+        val paths = tritonSearchStates.map { it.route.path }
         checkPathInQuateredMap(pois, paths)
-    }.first().map { it.routes.first().path }
+    }.first().map { it.route.path }
 }
 
 fun checkPathInQuateredMap(pois: List<Set<Poi>>, paths: List<List<PoiConnection>>): Boolean {
