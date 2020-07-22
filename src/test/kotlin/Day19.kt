@@ -104,42 +104,94 @@ What value do you get if you take that point's X coordinate, multiply it by 1000
 (In the example above, this would be 250020.)
  */
 
+fun trackerGrid(intCodes: List<Long>, xSize: Int, ySize: Int): List<List<Int>> {
+    val grid = (0..xSize-1).map { y ->
+        (0..ySize-1).map { x ->
+            deployDrone(intCodes, x, y)
+        }
+    }
+    return grid
+}
+
+fun deployDrone(intCodes: List<Long>, x: Int, y: Int): Int = intCodes.executeExtendedIntCodes09(listOf(x.toLong(), y.toLong())).first().toInt()
+
 class Day19Spec : Spek({
 
     describe("part 1") {
-        describe("running the drone program") {
-            given("int code") {
-                val intCodesString = readResource("day19Input.txt")!!
-                val intCodes = parseIntCodes09(intCodesString)
-                it("calculate the correct value for the coordinate X=0, Y=0") {
-                    val result = deployDrone(intCodes, 0, 0)
-                    result `should equal` 1
-                }
-                on("create the grid in the area 50x50") {
-                    val grid = (0..49).map { y ->
-                        (0..49).map { x ->
-                            deployDrone(intCodes, x, y)
-                        }
-                    }
-                    val gridString = grid.map { row ->
-                        row.map {
-                            if (it == 1) '#' else '.'
-                        }.joinToString("")
-                    }.joinToString("\n")
-                    it("should print the grid") {
-                        println(gridString)
-                    }
-                    it("should calculate points affected by the tractor beam") {
-                        val count = grid.map { row ->
-                            row.filter { it == 1}.count()
-                        }.sum()
-                        count `should equal` 231
-                    }
+        val intCodesString = readResource("day19Input.txt")!!
+        val intCodes = parseIntCodes09(intCodesString)
+        it("calculate the correct value for the coordinate X=0, Y=0 running the drone program") {
+            val result = deployDrone(intCodes, 0, 0)
+            result `should equal` 1
+        }
+        given("create the grid in the area 50x50") {
+            val grid = trackerGrid(intCodes, 50, 50)
+            val gridString = grid.map { row ->
+                row.map {
+                    if (it == 1) '#' else '.'
+                }.joinToString("")
+            }.joinToString("\n")
+            it("should print the grid") {
+                println(gridString)
+            }
+            it("should calculate points affected by the tractor beam") {
+                val count = grid.map { row ->
+                    row.filter { it == 1}.count()
+                }.sum()
+                count `should equal` 231
+            }
+        }
+    }
 
+    describe("part two") {
+        describe("find the square in the example") {
+            val exampleGrid = part2GridString.split("\n").map { row ->
+                row.map {
+                    if (it in setOf('#', 'O')) 1 else 0
                 }
+            }
+            it("should have parsed the correct grid") {
+                exampleGrid[0][0] `should equal` 1
+                exampleGrid[20][25] `should equal` 1 // coord of the square
             }
         }
     }
 })
 
-private fun deployDrone(intCodes: List<Long>, x: Int, y: Int): Int = intCodes.executeExtendedIntCodes09(listOf(x.toLong(), y.toLong())).first().toInt()
+val part2GridString = """
+#.......................................
+.#......................................
+..##....................................
+...###..................................
+....###.................................
+.....####...............................
+......#####.............................
+......######............................
+.......#######..........................
+........########........................
+.........#########......................
+..........#########.....................
+...........##########...................
+...........############.................
+............############................
+.............#############..............
+..............##############............
+...............###############..........
+................###############.........
+................#################.......
+.................########OOOOOOOOOO.....
+..................#######OOOOOOOOOO#....
+...................######OOOOOOOOOO###..
+....................#####OOOOOOOOOO#####
+.....................####OOOOOOOOOO#####
+.....................####OOOOOOOOOO#####
+......................###OOOOOOOOOO#####
+.......................##OOOOOOOOOO#####
+........................#OOOOOOOOOO#####
+.........................OOOOOOOOOO#####
+..........................##############
+..........................##############
+...........................#############
+............................############
+.............................########### 
+""".trimIndent()
