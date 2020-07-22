@@ -117,9 +117,10 @@ fun deployDrone(intCodes: List<Long>, x: Int, y: Int): Int = intCodes.executeExt
 
 class Day19Spec : Spek({
 
+    val intCodesString = readResource("day19Input.txt")!!
+    val intCodes = parseIntCodes09(intCodesString)
+
     describe("part 1") {
-        val intCodesString = readResource("day19Input.txt")!!
-        val intCodes = parseIntCodes09(intCodesString)
         it("calculate the correct value for the coordinate X=0, Y=0 running the drone program") {
             val result = deployDrone(intCodes, 0, 0)
             result `should equal` 1
@@ -153,6 +154,12 @@ class Day19Spec : Spek({
             it("should have parsed the correct grid") {
                 exampleGrid[0][0] `should equal` 1
                 exampleGrid[20][25] `should equal` 1 // coord of the square
+            }
+        }
+        describe("can we calculate a huge grid") {
+            val hugeGrid = trackerGrid(intCodes, 200, 200)
+            it("should have the right grid size") {
+                hugeGrid.size `should equal` 200
             }
         }
     }
