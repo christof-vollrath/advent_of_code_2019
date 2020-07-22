@@ -1,3 +1,10 @@
+import org.amshove.kluent.`should equal`
+import org.jetbrains.spek.api.Spek
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.on
+
 /*
 --- Day 19: Tractor Beam ---
 
@@ -40,3 +47,43 @@ How many points are affected by the tractor beam in the 50x50 area closest to th
 (For each of X and Y, this will be 0 through 49.)
 
  */
+
+class Day19Spec : Spek({
+
+    describe("part 1") {
+        describe("running the drone program") {
+            given("int code") {
+                val intCodesString = readResource("day19Input.txt")!!
+                val intCodes = parseIntCodes09(intCodesString)
+                it("calculate the correct value for the coordinate X=0, Y=0") {
+                    val result = deployDrone(intCodes, 0, 0)
+                    result `should equal` 1
+                }
+                on("create the grid in the area 50x50") {
+                    val grid = (0..49).map { y ->
+                        (0..49).map { x ->
+                            deployDrone(intCodes, x, y)
+                        }
+                    }
+                    val gridString = grid.map { row ->
+                        row.map {
+                            if (it == 1) '#' else '.'
+                        }.joinToString("")
+                    }.joinToString("\n")
+                    it("should print the grid") {
+                        println(gridString)
+                    }
+                    it("should calculate points affected by the tractor beam") {
+                        val count = grid.map { row ->
+                            row.filter { it == 1}.count()
+                        }.sum()
+                        count `should equal` 231
+                    }
+
+                }
+            }
+        }
+    }
+})
+
+private fun deployDrone(intCodes: List<Long>, x: Int, y: Int): Int = intCodes.executeExtendedIntCodes09(listOf(x.toLong(), y.toLong())).first().toInt()
