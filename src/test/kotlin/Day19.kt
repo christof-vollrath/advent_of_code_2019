@@ -1,9 +1,6 @@
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
-import org.jetbrains.spek.api.dsl.describe
-import org.jetbrains.spek.api.dsl.given
-import org.jetbrains.spek.api.dsl.it
-import org.jetbrains.spek.api.dsl.on
+import org.jetbrains.spek.api.dsl.*
 
 /*
 --- Day 19: Tractor Beam ---
@@ -110,6 +107,12 @@ fun trackerGrid(intCodes: List<Long>, xSize: Int, ySize: Int): List<List<Int>> {
             deployDrone(intCodes, x, y)
         }
     }
+    /*
+    val gridString = grid.map { row ->
+        row.map { if (it == 1) '#' else '.'}.joinToString("")
+    }.joinToString("\n")
+    println(gridString)
+    */
     return grid
 }
 
@@ -146,7 +149,7 @@ class Day19Spec : Spek({
 
     describe("part two") {
         describe("find the square in the example") {
-            val exampleGrid = part2GridString.split("\n").map { row ->
+            val exampleGrid = examplePart2GridString.split("\n").map { row ->
                 row.map {
                     if (it in setOf('#', 'O')) 1 else 0
                 }
@@ -155,17 +158,50 @@ class Day19Spec : Spek({
                 exampleGrid[0][0] `should equal` 1
                 exampleGrid[20][25] `should equal` 1 // coord of the square
             }
+            describe("find possible upper left corners of a square") {
+                val candidates = findSquareCandidates(exampleGrid, 10)
+                candidates[0] `should equal` Coord2(11, 12)
+                candidates[1] `should equal` Coord2(13, 13)
+            }
+            describe("find square") {
+                val squareCoord = findSquare(exampleGrid, 10)
+                squareCoord `should equal` Coord2(25, 20)
+            }
         }
+
         describe("can we calculate a huge grid") {
-            val hugeGrid = trackerGrid(intCodes, 200, 200)
+            val hugeGridSize = 4000
+            val hugeGrid = trackerGrid(intCodes, hugeGridSize, hugeGridSize)
             it("should have the right grid size") {
-                hugeGrid.size `should equal` 200
+                hugeGrid.size `should equal` hugeGridSize
+            }
+            it("should find the square") {
+                val squareCoord = findSquare(hugeGrid, 100)
+                squareCoord `should equal` Coord2(25, 20)
             }
         }
     }
 })
 
-val part2GridString = """
+fun findSquareCandidates(grid: List<List<Int>>, squareSize: Int): List<Coord2> =
+    grid.mapIndexed { y, row ->
+        val right = row.mapIndexed { x, cell -> x to cell }.last { it.second == 1}.first
+        val left =  row.mapIndexed { x, cell -> x to cell }.first { it.second == 1}.first
+        val currentSize = right - left + 1
+        if (currentSize >= squareSize) Coord2(right - squareSize + 1, y)
+        else null
+    }.filterNotNull()
+
+
+fun findSquare(grid: List<List<Int>>, size: Int): Coord2 {
+    val candidates = findSquareCandidates(grid, size) // upper left corners
+    return candidates.first { candidate ->
+        println("x=${candidate.x} y=${candidate.y}")
+        grid[candidate.y + size - 1][candidate.x] == 1 // lower left should also be reached by the tracker
+    }
+}
+
+val examplePart2GridString = """
 #.......................................
 .#......................................
 ..##....................................
