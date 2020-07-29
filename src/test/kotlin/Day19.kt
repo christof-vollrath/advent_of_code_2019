@@ -1,6 +1,7 @@
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.*
+import java.lang.IllegalArgumentException
 
 /*
 --- Day 19: Tractor Beam ---
@@ -159,7 +160,7 @@ class Day19Spec : Spek({
                 exampleGrid[20][25] `should equal` 1 // coord of the square
             }
             describe("find possible upper left corners of a square") {
-                val candidates = findSquareCandidates(exampleGrid, 10)
+                val candidates = findSquareCandidates(exampleGrid, 10).take(2).toList()
                 candidates[0] `should equal` Coord2(11, 12)
                 candidates[1] `should equal` Coord2(13, 13)
             }
@@ -169,7 +170,8 @@ class Day19Spec : Spek({
             }
         }
 
-        describe("can we calculate a huge grid") {
+        xdescribe("can we calculate a huge grid") {
+            /*
             val hugeGridSize = 4000
             val hugeGrid = trackerGrid(intCodes, hugeGridSize, hugeGridSize)
             it("should have the right grid size") {
@@ -179,18 +181,42 @@ class Day19Spec : Spek({
                 val squareCoord = findSquare(hugeGrid, 100)
                 squareCoord `should equal` Coord2(25, 20)
             }
+             */
         }
     }
 })
 
-fun findSquareCandidates(grid: List<List<Int>>, squareSize: Int): List<Coord2> =
-    grid.mapIndexed { y, row ->
-        val right = row.mapIndexed { x, cell -> x to cell }.last { it.second == 1}.first
-        val left =  row.mapIndexed { x, cell -> x to cell }.first { it.second == 1}.first
-        val currentSize = right - left + 1
-        if (currentSize >= squareSize) Coord2(right - squareSize + 1, y)
-        else null
-    }.filterNotNull()
+fun findSquareCandidates(grid: List<List<Int>>, squareSize: Int): Sequence<Coord2> =
+    sequence {
+        for (y in 0..(grid.size-1)) {
+            val row = grid[y]
+            val right = row.mapIndexed { x, cell -> x to cell }.last { it.second == 1}.first
+            var left: Int? = null
+            for (x in 0..(row.size-1)) {
+                if (row[x] == 1) {
+                    left = x
+                    break
+                }
+            }
+            yield(if (left == null) null
+            else {
+                var right: Int? = null
+                for (x in left..(row.size-1)) {
+                    if (row[x] != 1) {
+                        right = x - 1
+                        break
+                    }
+                }
+                if (right == null) null
+                else {
+                    val currentSize = right - left + 1
+                    if (currentSize >= squareSize) Coord2(right - squareSize + 1, y)
+                    else null
+                }
+            })
+        }
+    }
+    .filterNotNull()
 
 
 fun findSquare(grid: List<List<Int>>, size: Int): Coord2 {
