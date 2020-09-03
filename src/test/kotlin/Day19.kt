@@ -1,7 +1,8 @@
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
-import org.jetbrains.spek.api.dsl.*
-import java.lang.IllegalArgumentException
+import org.jetbrains.spek.api.dsl.describe
+import org.jetbrains.spek.api.dsl.given
+import org.jetbrains.spek.api.dsl.it
 
 /*
 --- Day 19: Tractor Beam ---
@@ -102,19 +103,31 @@ What value do you get if you take that point's X coordinate, multiply it by 1000
 (In the example above, this would be 250020.)
  */
 
-fun trackerGrid(intCodes: List<Long>, xSize: Int, ySize: Int): List<List<Int>> {
-    val grid = (0..xSize-1).map { y ->
-        (0..ySize-1).map { x ->
-            deployDrone(intCodes, x, y)
+interface GridInterface {
+    operator fun get(x: Int, y: Int): Int
+    fun toList(xSize: Int, ySize: Int): List<List<Int>> =
+        (0 until ySize).map { y ->
+            (0 until xSize).map { x ->
+                this[x, y]
+            }
+
         }
+}
+data class TrackerGrid(val intCodes: List<Long>) : GridInterface {
+    override operator fun get(x: Int, y: Int) = deployDrone(intCodes, x, y)
+}
+data class ExampleGrid(val grid: List<List<Int>>) : GridInterface {
+    constructor(gridString: String) :
+        this(gridString.split("\n").map { row ->
+            row.map {
+                if (it in setOf('#', 'O')) 1 else 0
+            }
+        })
+    override operator fun get(x: Int, y: Int) = try {
+        grid[y][x]
+    } catch(e: IndexOutOfBoundsException) {
+        0
     }
-    /*
-    val gridString = grid.map { row ->
-        row.map { if (it == 1) '#' else '.'}.joinToString("")
-    }.joinToString("\n")
-    println(gridString)
-    */
-    return grid
 }
 
 fun deployDrone(intCodes: List<Long>, x: Int, y: Int): Int = intCodes.executeExtendedIntCodes09(listOf(x.toLong(), y.toLong())).first().toInt()
@@ -130,17 +143,17 @@ class Day19Spec : Spek({
             result `should equal` 1
         }
         given("create the grid in the area 50x50") {
-            val grid = trackerGrid(intCodes, 50, 50)
-            val gridString = grid.map { row ->
+            val grid = TrackerGrid(intCodes)
+            val gridString = grid.toList(50, 50).joinToString("\n") { row ->
                 row.map {
                     if (it == 1) '#' else '.'
                 }.joinToString("")
-            }.joinToString("\n")
+            }
             it("should print the grid") {
                 println(gridString)
             }
             it("should calculate points affected by the tractor beam") {
-                val count = grid.map { row ->
+                val count = grid.toList(50, 50).map { row ->
                     row.filter { it == 1}.count()
                 }.sum()
                 count `should equal` 231
@@ -150,50 +163,47 @@ class Day19Spec : Spek({
 
     describe("part two") {
         describe("find the square in the example") {
-            val exampleGrid = examplePart2GridString.split("\n").map { row ->
-                row.map {
-                    if (it in setOf('#', 'O')) 1 else 0
-                }
-            }
+            val exampleGrid = ExampleGrid(examplePart2GridString)
             it("should have parsed the correct grid") {
-                exampleGrid[0][0] `should equal` 1
-                exampleGrid[20][25] `should equal` 1 // coord of the square
+                exampleGrid[0, 0] `should equal` 1
+                exampleGrid[25, 20] `should equal` 1 // coord of the square
             }
-            describe("find possible upper left corners of a square") {
-                val candidates = findSquareCandidates(exampleGrid, 10).take(2).toList()
+            it("should find possible upper left corners of a square") {
+                val candidates = findSquareCandidates(exampleGrid, 10).take(2).take(2).toList()
                 candidates[0] `should equal` Coord2(11, 12)
                 candidates[1] `should equal` Coord2(13, 13)
             }
-            describe("find square") {
+            it("should find the square") {
                 val squareCoord = findSquare(exampleGrid, 10)
                 squareCoord `should equal` Coord2(25, 20)
+                val result = calculateFormula(squareCoord)
+                result `should equal` 250020
+            }
+        }
+        describe("find the square in the exercise") {
+            val trackerGrid = TrackerGrid(intCodes)
+            it("should find the square") {
+                val squareCoord = findSquare(trackerGrid, 100)
+                squareCoord `should equal` Coord2(921, 745)
+                val result = calculateFormula(squareCoord)
+                result `should equal` 9210745
             }
         }
 
-        xdescribe("can we calculate a huge grid") {
-            /*
-            val hugeGridSize = 4000
-            val hugeGrid = trackerGrid(intCodes, hugeGridSize, hugeGridSize)
-            it("should have the right grid size") {
-                hugeGrid.size `should equal` hugeGridSize
-            }
-            it("should find the square") {
-                val squareCoord = findSquare(hugeGrid, 100)
-                squareCoord `should equal` Coord2(25, 20)
-            }
-             */
-        }
     }
 })
 
-fun findSquareCandidates(grid: List<List<Int>>, squareSize: Int): Sequence<Coord2> =
+fun calculateFormula(squareCoord: Coord2) = squareCoord.x * 10_000 + squareCoord.y
+
+const val UPPER_BOUND = 10_000 // Upper bound for search because some rows have no cell reached by tracker beam
+
+fun findSquareCandidates(grid: GridInterface, squareSize: Int): Sequence<Coord2> =
     sequence {
-        for (y in 0..(grid.size-1)) {
-            val row = grid[y]
-            val right = row.mapIndexed { x, cell -> x to cell }.last { it.second == 1}.first
+        var y = 0
+        while(true) {
             var left: Int? = null
-            for (x in 0..(row.size-1)) {
-                if (row[x] == 1) {
+            for (x in 0..UPPER_BOUND) {
+                if (grid[x, y] == 1) {
                     left = x
                     break
                 }
@@ -201,8 +211,8 @@ fun findSquareCandidates(grid: List<List<Int>>, squareSize: Int): Sequence<Coord
             yield(if (left == null) null
             else {
                 var right: Int? = null
-                for (x in left..(row.size-1)) {
-                    if (row[x] != 1) {
+                for (x in left..UPPER_BOUND) {
+                    if (grid[x, y] != 1) {
                         right = x - 1
                         break
                     }
@@ -214,16 +224,15 @@ fun findSquareCandidates(grid: List<List<Int>>, squareSize: Int): Sequence<Coord
                     else null
                 }
             })
+            y++
         }
     }
     .filterNotNull()
 
-
-fun findSquare(grid: List<List<Int>>, size: Int): Coord2 {
+fun findSquare(grid: GridInterface, size: Int): Coord2 {
     val candidates = findSquareCandidates(grid, size) // upper left corners
     return candidates.first { candidate ->
-        println("x=${candidate.x} y=${candidate.y}")
-        grid[candidate.y + size - 1][candidate.x] == 1 // lower left should also be reached by the tracker
+        grid[candidate.x, candidate.y + size - 1] == 1 // lower left should also be reached by the tracker
     }
 }
 
