@@ -1,3 +1,4 @@
+import org.amshove.kluent.`should contain`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
@@ -143,16 +144,35 @@ class Day20Spec : Spek({
         describe("find portals") {
             it("should find portals for simple example") {
                 val portals = findPortals(simpleMazeArray)
-                TODO("assertions")
+                portals `should contain` Portal("AA", Coord2(9, 2))
+                portals `should contain` Portal("FG", Coord2(11, 12))
+                portals `should contain` Portal("BC", Coord2(2, 8))
             }
         }
     }
 })
 
-fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> {
-    TODO()
-}
+val neighborOffsets = listOf(Coord2(-1, 0), Coord2(1, 0), Coord2(0, -1), Coord2(0, 1))
 
-data class Portal(val coord: Coord2)
+fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArray.mapIndexed { y, row ->
+    row.mapIndexed { x, _ -> Coord2(x, y )}
+}.flatten().filter { simpleMazeArray[it] == '.' }
+    .flatMap { coord2 ->
+        neighborOffsets.map { neighborOffset ->
+            val neighborCoord2 = coord2 + neighborOffset
+            val c1 = simpleMazeArray.getOrElse(neighborCoord2) { ' ' }
+            if (c1.isLetter()) {
+                val c2 = simpleMazeArray.getOrElse(neighborCoord2 + neighborOffset) { ' ' }
+                val portalName = if (neighborOffset.x > 0 || neighborOffset.y > 0) "$c1$c2"
+                else  "$c2$c1" // reading reversed
+                Portal(portalName, coord2)
+            } else null
+        }
+}.filterNotNull().toSet()
+
+private operator fun <E> List<List<E>>.get(coord2: Coord2): E  = get(coord2.y).get(coord2.x)
+private fun <E> List<List<E>>.getOrElse(coord2: Coord2, default: (Int) -> E): E  = getOrElse(coord2.y, { emptyList() }).getOrElse(coord2.x, default)
+
+data class Portal(val name: String, val coord: Coord2)
 
 fun parseMazeToArray(simpleMazeString: String): List<List<Char>> = simpleMazeString.split("\n").map { it.toList() }
