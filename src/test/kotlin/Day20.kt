@@ -142,11 +142,17 @@ class Day20Spec : Spek({
         val simpleMazeArray = parseMazeToArray(simpleMazeString)
 
         describe("find portals") {
-            it("should find portals for simple example") {
+            it("should find portals for the simple example") {
                 val portals = findPortals(simpleMazeArray)
                 portals `should contain` Portal("AA", Coord2(9, 2))
                 portals `should contain` Portal("FG", Coord2(11, 12))
                 portals `should contain` Portal("BC", Coord2(2, 8))
+            }
+        }
+        describe("find crossings") {
+            it("should find crossings for the simple example") {
+                val crossing = findCrossings(simpleMazeArray)
+                crossing `should contain` Crossing(Coord2(9, 3))
             }
         }
     }
@@ -170,9 +176,22 @@ fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArra
         }
 }.filterNotNull().toSet()
 
+fun findCrossings(simpleMazeArray: List<List<Char>>): Set<Crossing> = simpleMazeArray.mapIndexed { y, row ->
+    row.mapIndexed { x, _ -> Coord2(x, y )}
+}.flatten().filter { simpleMazeArray[it] == '.' }
+    .map { coord2 ->
+        val connected = neighborOffsets.mapNotNull { neighborOffset ->
+            val neighborCoord2 = coord2 + neighborOffset
+            val c = simpleMazeArray.getOrElse(neighborCoord2) { ' ' }
+            if (c == '.') neighborCoord2 else null
+        }
+        if (connected.size >= 3) Crossing(coord2) else null
+    }.filterNotNull().toSet()
+
 private operator fun <E> List<List<E>>.get(coord2: Coord2): E  = get(coord2.y).get(coord2.x)
 private fun <E> List<List<E>>.getOrElse(coord2: Coord2, default: (Int) -> E): E  = getOrElse(coord2.y, { emptyList() }).getOrElse(coord2.x, default)
 
 data class Portal(val name: String, val coord: Coord2)
+data class Crossing(val coord2: Coord2)
 
 fun parseMazeToArray(simpleMazeString: String): List<List<Char>> = simpleMazeString.split("\n").map { it.toList() }
