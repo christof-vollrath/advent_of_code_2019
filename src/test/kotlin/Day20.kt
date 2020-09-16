@@ -160,9 +160,7 @@ class Day20Spec : Spek({
 
 val neighborOffsets = listOf(Coord2(-1, 0), Coord2(1, 0), Coord2(0, -1), Coord2(0, 1))
 
-fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArray.mapIndexed { y, row ->
-    row.mapIndexed { x, _ -> Coord2(x, y )}
-}.flatten().filter { simpleMazeArray[it] == '.' }
+fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArray.coord2s().filter { simpleMazeArray[it] == '.' }
     .flatMap { coord2 ->
         neighborOffsets.map { neighborOffset ->
             val neighborCoord2 = coord2 + neighborOffset
@@ -176,9 +174,7 @@ fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArra
         }
 }.filterNotNull().toSet()
 
-fun findCrossings(simpleMazeArray: List<List<Char>>): Set<Crossing> = simpleMazeArray.mapIndexed { y, row ->
-    row.mapIndexed { x, _ -> Coord2(x, y )}
-}.flatten().filter { simpleMazeArray[it] == '.' }
+fun findCrossings(simpleMazeArray: List<List<Char>>): Set<Crossing> = simpleMazeArray.coord2s().filter { simpleMazeArray[it] == '.' }
     .map { coord2 ->
         val connected = neighborOffsets.mapNotNull { neighborOffset ->
             val neighborCoord2 = coord2 + neighborOffset
@@ -187,6 +183,10 @@ fun findCrossings(simpleMazeArray: List<List<Char>>): Set<Crossing> = simpleMaze
         }
         if (connected.size >= 3) Crossing(coord2) else null
     }.filterNotNull().toSet()
+
+private fun <E> List<List<E>>.coord2s(): List<Coord2> = mapIndexed { y, row ->
+    row.mapIndexed { x, _ -> Coord2(x, y )}
+}.flatten()
 
 private operator fun <E> List<List<E>>.get(coord2: Coord2): E  = get(coord2.y).get(coord2.x)
 private fun <E> List<List<E>>.getOrElse(coord2: Coord2, default: (Int) -> E): E  = getOrElse(coord2.y, { emptyList() }).getOrElse(coord2.x, default)
