@@ -78,6 +78,12 @@ data class CartesianCoordinate(val x: Double, val y: Double) {
 data class Coord2(val x: Int, val y: Int) {
     infix fun manhattanDistance(other: Coord2): Int = abs(x - other.x) + abs(y - other.y)
     operator fun plus(direction: Coord2) = Coord2(x + direction.x, y + direction.y)
+    fun neighbors() = neighborOffsets.map { neighborOffset ->
+        this + neighborOffset
+    }
+    companion object {
+        val neighborOffsets = listOf(Coord2(-1, 0), Coord2(1, 0), Coord2(0, -1), Coord2(0, 1))
+    }
 }
 
 fun <E> List<List<E>>.getOrNull(coord: Coord2): E? {

@@ -158,11 +158,9 @@ class Day20Spec : Spek({
     }
 })
 
-val neighborOffsets = listOf(Coord2(-1, 0), Coord2(1, 0), Coord2(0, -1), Coord2(0, 1))
-
 fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArray.coord2s().filter { simpleMazeArray[it] == '.' }
     .flatMap { coord2 ->
-        neighborOffsets.map { neighborOffset ->
+        Coord2.neighborOffsets.map { neighborOffset ->
             val neighborCoord2 = coord2 + neighborOffset
             val c1 = simpleMazeArray.getOrElse(neighborCoord2) { ' ' }
             if (c1.isLetter()) {
@@ -176,8 +174,7 @@ fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArra
 
 fun findCrossings(simpleMazeArray: List<List<Char>>): Set<Crossing> = simpleMazeArray.coord2s().filter { simpleMazeArray[it] == '.' }
     .map { coord2 ->
-        val connected = neighborOffsets.mapNotNull { neighborOffset ->
-            val neighborCoord2 = coord2 + neighborOffset
+        val connected = coord2.neighbors().map { neighborCoord2 ->
             val c = simpleMazeArray.getOrElse(neighborCoord2) { ' ' }
             if (c == '.') neighborCoord2 else null
         }
