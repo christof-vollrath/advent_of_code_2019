@@ -2,7 +2,6 @@ import org.amshove.kluent.`should contain`
 import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
-import org.jetbrains.spek.api.dsl.given
 import org.jetbrains.spek.api.dsl.it
 
 /*
@@ -153,10 +152,43 @@ class Day20Spec : Spek({
             it("should find crossings for the simple example") {
                 val crossing = findCrossings(simpleMazeArray)
                 crossing `should contain` Crossing(Coord2(9, 3))
+                crossing.size `should equal` 2
+            }
+        }
+        val simpleMazePointByCoord2 = (findCrossings(simpleMazeArray) + findPortals(simpleMazeArray)).map {
+            it.coord2 to it
+        }.toMap()
+        describe("fallow path in maze") {
+            it("should fallow a very short path") {
+                val path = fallowPath(from = Coord2(9, 2), current = Coord2(9, 3), currentLength = 1,
+                    mazeArray = simpleMazeArray, mazePointByCoord2 = simpleMazePointByCoord2)
+                path.first `should equal` Crossing(Coord2(9, 3))
+                path.second `should equal` 1
+            }
+            it("should fallow a longer path") {
+                val path = fallowPath(from = Coord2(9, 3), current = Coord2(10, 3), currentLength = 2,
+                    mazeArray = simpleMazeArray, mazePointByCoord2 = simpleMazePointByCoord2)
+                path.first `should equal` Crossing(Coord2(13, 15))
+                path.second `should equal` 25
             }
         }
     }
 })
+
+fun fallowPath(
+    from: Coord2,
+    current: Coord2,
+    currentLength: Int,
+    mazeArray: List<List<Char>>,
+    mazePointByCoord2: Map<Coord2, MazePoint>
+): Pair<MazePoint, Int> {
+    val connectedTo = mazePointByCoord2[current]
+    return if (connectedTo != null) connectedTo to currentLength
+    else {
+        val next = (current.passableNeighbors(mazeArray) - from).first()
+        fallowPath(current, next, currentLength + 1, mazeArray, mazePointByCoord2)
+    }
+}
 
 fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArray.coord2s().filter { simpleMazeArray[it] == '.' }
     .flatMap { coord2 ->
@@ -172,12 +204,9 @@ fun findPortals(simpleMazeArray: List<List<Char>>): Set<Portal> = simpleMazeArra
         }
 }.filterNotNull().toSet()
 
-fun findCrossings(simpleMazeArray: List<List<Char>>): Set<Crossing> = simpleMazeArray.coord2s().filter { simpleMazeArray[it] == '.' }
+fun findCrossings(mazeArray: List<List<Char>>): Set<Crossing> = mazeArray.coord2s().filter { mazeArray[it] == '.' }
     .map { coord2 ->
-        val connected = coord2.neighbors().map { neighborCoord2 ->
-            val c = simpleMazeArray.getOrElse(neighborCoord2) { ' ' }
-            if (c == '.') neighborCoord2 else null
-        }
+        val connected = coord2.passableNeighbors(mazeArray)
         if (connected.size >= 3) Crossing(coord2) else null
     }.filterNotNull().toSet()
 
@@ -187,8 +216,13 @@ private fun <E> List<List<E>>.coord2s(): List<Coord2> = mapIndexed { y, row ->
 
 private operator fun <E> List<List<E>>.get(coord2: Coord2): E  = get(coord2.y).get(coord2.x)
 private fun <E> List<List<E>>.getOrElse(coord2: Coord2, default: (Int) -> E): E  = getOrElse(coord2.y, { emptyList() }).getOrElse(coord2.x, default)
+private fun Coord2.passableNeighbors(mazeArray: List<List<Char>>) = neighbors().filter { neighborCoord2 ->
+    val c = mazeArray.getOrElse(neighborCoord2) { ' ' }
+    c == '.'
+}
 
-data class Portal(val name: String, val coord: Coord2)
-data class Crossing(val coord2: Coord2)
+interface MazePoint { val coord2: Coord2 }
+data class Portal(val name: String, override val coord2: Coord2): MazePoint
+data class Crossing(override val coord2: Coord2): MazePoint
 
 fun parseMazeToArray(simpleMazeString: String): List<List<Char>> = simpleMazeString.split("\n").map { it.toList() }
