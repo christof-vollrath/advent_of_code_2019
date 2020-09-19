@@ -171,9 +171,26 @@ class Day20Spec : Spek({
                 path.first `should equal` Crossing(Coord2(13, 15))
                 path.second `should equal` 25
             }
+            it("should find all paths from a crossing") {
+                val paths = fallowPaths(from = Coord2(9, 3),
+                    mazeArray = simpleMazeArray, mazePointByCoord2 = simpleMazePointByCoord2)
+                paths `should contain` (Portal("AA", Coord2(9, 2)) to 1)
+                paths `should contain` (Portal("BC", Coord2(9, 6)) to 3)
+                paths `should contain` (Crossing(Coord2(13, 15)) to 24)
+            }
         }
     }
 })
+
+fun fallowPaths(
+    from: Coord2,
+    mazeArray: List<List<Char>>,
+    mazePointByCoord2: Map<Coord2, MazePoint>): Set<Pair<MazePoint, Int>> {
+        val connectedTos = from.passableNeighbors(mazeArray)
+        return connectedTos.map { connectedTo ->
+            fallowPath(from, connectedTo, 1, mazeArray, mazePointByCoord2)
+        }.toSet()
+}
 
 fun fallowPath(
     from: Coord2,
