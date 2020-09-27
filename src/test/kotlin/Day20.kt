@@ -196,13 +196,20 @@ class Day20Spec : Spek({
         }
 
         val simpleMazeConnections = findAllConnections(simpleMazeArray, simpleMazePointByCoord2)
-
+/*
+        describe("find all shortest path from a point") {
+            it("should find all shortest path from a point where no crossings are passed") {
+                val shortestPaths = findAllShortestPathInMaze(Coord2(9, 3), simpleMazeConnections)
+                shortestPaths.size `should equal` 26
+            }
+        }
         describe("find shortest path") {
             it("should find the shortest path from AA to ZZ") {
                 val shortestPathLength = findShortestPathInMaze(Coord2(9, 2), Coord2(13, 16), simpleMazeConnections)
                 shortestPathLength `should equal` 26
             }
         }
+ */
     }
 })
 
