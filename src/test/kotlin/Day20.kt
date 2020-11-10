@@ -225,6 +225,33 @@ class Day20Spec : Spek({
                     Coord2(11, 5) to Path(7, listOf(Portal("ZZ", Coord2(11, 5)) to 7))
                 )
             }
+            it("should use a portal") {
+                val verySimpleMazeString = """
+                             A
+                             A
+                      #######.#########
+                      #######.#########
+                      #      B        #
+                      #      B        #
+                      #               #
+                      #      B        #
+                      #      B        #
+                      #######.#########
+                      #######.#########
+                             Z
+                             Z 
+                """.trimIndent()
+                val verySimpleMaze = Maze(verySimpleMazeString)
+                val shortestPaths = findAllShortestPathInMaze(verySimpleMaze.start!!, verySimpleMaze)
+                shortestPaths `should equal` mapOf(
+                    Coord2(7, 2) to Path(0, emptyList()),
+                    Coord2(7, 10) to Path(2, listOf(
+                        Portal("BB", Coord2(7, 3)) to 1,
+                        Portal("BB", Coord2(7, 9)) to 0,
+                        Portal("ZZ", Coord2(7, 10)) to 1,
+                    )),
+                )
+            }
             it("should find all (shortest) pathes when there are two portals and a crossing") {
                 val verySimpleMazeString = """
                              A
@@ -240,11 +267,15 @@ class Day20Spec : Spek({
                 val shortestPaths = findAllShortestPathInMaze(verySimpleMaze.start!!, verySimpleMaze)
                 shortestPaths `should equal` mapOf(
                     Coord2(7, 2) to Path(0, emptyList()),
-                    Coord2(11, 5) to Path(7, listOf(Crossing(Coord2(11, 4)) to 6,
-                            Portal("ZZ", Coord2(11, 5)) to 1)),
+                    Coord2(11, 5) to Path(7, listOf(
+                            Crossing(Coord2(11, 4)) to 6,
+                            Portal("ZZ", Coord2(11, 5)) to 1)
+                    ),
                     Coord2(11, 4) to Path(6, listOf(Crossing(Coord2(11, 4)) to 6)),
-                    Coord2(16, 4) to Path(11, listOf(Crossing(Coord2(11, 4)) to 6,
-                            Portal("BB", Coord2(16, 4)) to 5)),
+                    Coord2(16, 4) to Path(11, listOf(
+                            Crossing(Coord2(11, 4)) to 6,
+                            Portal("BB", Coord2(16, 4)) to 5)
+                    ),
                 )
             }
         }
