@@ -189,6 +189,23 @@ class Day20Spec : Spek({
             }
         }
 
+        describe("find start") {
+            it("should find the start") {
+                val verySimpleMazeString = """
+                             A
+                             A
+                      #######.#########
+                      #######.....#####
+                      ###########.#####
+                      ###########.#####
+                                 Z
+                                 Z 
+                """.trimIndent()
+                val verySimpleMaze = Maze(verySimpleMazeString)
+                verySimpleMaze.start `should equal` Portal("AA", Coord2(7, 2))
+            }
+        }
+
         describe("find all shortest path from a point") {
             it("should find the (shortest) path when there is only one path") {
                 val verySimpleMazeString = """
@@ -202,14 +219,33 @@ class Day20Spec : Spek({
                                  Z 
                 """.trimIndent()
                 val verySimpleMaze = Maze(verySimpleMazeString)
-                val verySimpleMazeConnections = findAllDirectConnections(verySimpleMaze)
-                val shortestPaths = findAllShortestPathInMaze(Coord2(7, 2), verySimpleMazeConnections)
+                val shortestPaths = findAllShortestPathInMaze(verySimpleMaze.start!!, verySimpleMaze)
                 shortestPaths `should equal` mapOf(
-                        Coord2(11, 5) to Path(7, listOf(Portal("ZZ", Coord2(11, 5)) to 7))
+                    Coord2(7, 2) to Path(0, emptyList()),
+                    Coord2(11, 5) to Path(7, listOf(Portal("ZZ", Coord2(11, 5)) to 7))
                 )
             }
             it("should find all (shortest) pathes when there are two portals and a crossing") {
-                //TODO()
+                val verySimpleMazeString = """
+                             A
+                             A
+                      #######.#########
+                      #######.....#####
+                      ###########......BB
+                      ###########.#####
+                                 Z
+                                 Z 
+                """.trimIndent()
+                val verySimpleMaze = Maze(verySimpleMazeString)
+                val shortestPaths = findAllShortestPathInMaze(verySimpleMaze.start!!, verySimpleMaze)
+                shortestPaths `should equal` mapOf(
+                    Coord2(7, 2) to Path(0, emptyList()),
+                    Coord2(11, 5) to Path(7, listOf(Crossing(Coord2(11, 4)) to 6,
+                            Portal("ZZ", Coord2(11, 5)) to 1)),
+                    Coord2(11, 4) to Path(6, listOf(Crossing(Coord2(11, 4)) to 6)),
+                    Coord2(16, 4) to Path(11, listOf(Crossing(Coord2(11, 4)) to 6,
+                            Portal("BB", Coord2(16, 4)) to 5)),
+                )
             }
         }
 /*
@@ -230,23 +266,26 @@ class Day20Spec : Spek({
 })
 
 
-fun findShortestPathInMaze(from: Coord2, to: Coord2, mazeConnections: Map<Coord2, Set<Pair<MazePoint, Int>>>) = findAllShortestPathInMaze(from, mazeConnections)[to]
+fun findShortestPathInMaze(from: Portal, to: Portal, maze: Maze) = findAllShortestPathInMaze(from, maze)[to.coord2]
 
-fun findAllShortestPathInMaze(from: Coord2, mazeConnections: Map<Coord2, Set<Pair<MazePoint, Int>>>): Map<Coord2, Path> {
-    var discovered = mazeConnections[from]!!.map { (toMazePoint, length) ->
-        toMazePoint.coord2 to Path(length, listOf(toMazePoint to length))
-    }.toMap()
-    /*
+fun findAllShortestPathInMaze(from: Portal, maze: Maze): Map<Coord2, Path> {
+    val mazeConnections = findAllDirectConnections(maze)
+    var discovered = mapOf(from.coord2 to Path(0, emptyList()))
     while (true) {
         var newPathFound = false
         val newDiscovered = discovered.flatMap { (discoverdCoord2, discoveredPath) ->
             val nextConnections = mazeConnections[discoverdCoord2]
             println("nextConnections=$nextConnections")
             val h = if (nextConnections != null)
-                nextConnections.flatMap { (toMazePoint, length) ->
+                nextConnections.mapNotNull { (toMazePoint, length) ->
                     val totalLength = discoveredPath.length + length
                     val nextPath = Path(totalLength, discoveredPath.points + listOf(toMazePoint to length))
-                    toMazePoint.coord2 to nextPath
+                    val alreadyDiscoveredPath = discovered[toMazePoint.coord2]
+                    if (alreadyDiscoveredPath == null) {
+                        newPathFound = true
+                        toMazePoint.coord2 to nextPath
+                    } else null
+                }
                     /*
                     val alreadyDescoveredPath = discovered[toMazePoint.coord2]
                     if (alreadyDescoveredPath != null) { // Check if the new path is better than the already found path
@@ -260,15 +299,13 @@ fun findAllShortestPathInMaze(from: Coord2, mazeConnections: Map<Coord2, Set<Pai
                     }
                 }
                      */
-                }
-            else emptyList<Coord2, Path>()
+            else emptyList<Pair<Coord2, Path>>()
             println("h=$h")
             h
         }.toMap()
         if (! newPathFound) return discovered
+        else discovered = discovered + newDiscovered
     }
-     */
-    return discovered
 }
 
 fun findAllDirectConnections(maze: Maze): Map<Coord2, Set<Pair<MazePoint, Int>>> {
@@ -342,6 +379,9 @@ class Maze(val mazeString: String) {
                 val connected = coord2.passableNeighbors(mazeArray)
                 if (connected.size >= 3) Crossing(coord2) else null
             }.filterNotNull().toSet()
+    }
+    val start: Portal? by lazy {
+        portals.find { it.name == "AA" }
     }
     val pointsByCoord: Map<Coord2, MazePoint> by lazy {
         (crossings + portals).map {
