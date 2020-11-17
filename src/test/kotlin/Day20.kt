@@ -398,6 +398,16 @@ class Day20Spec : Spek({
                 shortestPathFromStartToEnd.length `should equal` 58
             }
         }
+        describe("find the shortestPath in the exercise") {
+            val input = readResource("day20Input.txt")!!
+            val maze = Maze(input)
+            it("should find the shortes path from start to end") {
+                val shortestPaths = findAllShortestPathInMaze(maze.start!!, maze)
+                val shortestPathFromStartToEnd = shortestPaths.getValue(maze.end!!.coord2)
+                shortestPathFromStartToEnd.length `should equal` 588
+            }
+        }
+
     }
 })
 
@@ -531,7 +541,6 @@ class Maze(private val mazeString: String) {
         val connectedTo = pointsByCoord[current]
         return if (connectedTo != null) connectedTo to currentLength
         else {
-            println("from=$from current=$current current.passableNeighbors(mazeArray)=${current.passableNeighbors(mazeArray)}")
             val next = current.passableNeighbors(mazeArray) - from
             when {
                 next.isEmpty() -> null // Dead end
