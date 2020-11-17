@@ -139,7 +139,6 @@ class Day20Spec : Spek({
                 mazeArray[7][9] `should equal` 'B'
             }
         }
-
         val simpleMaze = Maze(simpleMazeString)
 
         describe("find portals") {
@@ -334,10 +333,9 @@ class Day20Spec : Spek({
                         Coord2(11, 5) to Path(7, listOf(Crossing(Coord2(x=7, y=3)) to 1, Portal("ZZ", Coord2(11, 5)) to 6))
                 )
             }
-            it("should find shortest pathes for the simple maze") {
-                val simpleMaze = Maze(simpleMazeString)
+            it("should find shortest paths for the simple maze") {
                 val shortestPaths = findAllShortestPathInMaze(simpleMaze.start!!, simpleMaze)
-                val shortestPathFromStartToEnd = shortestPaths[simpleMaze.end!!.coord2]!!
+                val shortestPathFromStartToEnd = shortestPaths.getValue(simpleMaze.end!!.coord2)
                 println(shortestPathFromStartToEnd)
                 shortestPathFromStartToEnd.length `should equal` 23
                 shortestPathFromStartToEnd `should equal` Path(length=23, points=listOf(
@@ -395,7 +393,7 @@ class Day20Spec : Spek({
                 """.trimIndent()
                 val biggerMaze = Maze(biggerMazeString)
                 val shortestPaths = findAllShortestPathInMaze(biggerMaze.start!!, biggerMaze)
-                val shortestPathFromStartToEnd = shortestPaths[biggerMaze.end!!.coord2]!!
+                val shortestPathFromStartToEnd = shortestPaths.getValue(biggerMaze.end!!.coord2)
                 println(shortestPathFromStartToEnd)
                 shortestPathFromStartToEnd.length `should equal` 58
             }
@@ -425,7 +423,7 @@ fun findAllShortestPathInMaze(from: Portal, maze: Maze): Map<Coord2, Path> {
                         } else null
                     }
                 }
-            else emptyList<Pair<Coord2, Path>>()
+            else emptyList()
         }.toMap()
         if (! newPathFound) return discovered
         else discovered = discovered + newDiscovered
@@ -436,8 +434,8 @@ private fun <E> List<List<E>>.coord2s(): List<Coord2> = mapIndexed { y, row ->
     row.mapIndexed { x, _ -> Coord2(x, y )}
 }.flatten()
 
-private operator fun <E> List<List<E>>.get(coord2: Coord2): E  = get(coord2.y).get(coord2.x)
-private fun <E> List<List<E>>.getOrElse(coord2: Coord2, default: (Int) -> E): E  = getOrElse(coord2.y, { emptyList() }).getOrElse(coord2.x, default)
+private operator fun <E> List<List<E>>.get(coord2: Coord2): E  = get(coord2.y)[coord2.x]
+private fun <E> List<List<E>>.getOrElse(coord2: Coord2, default: (Int) -> E): E  = getOrElse(coord2.y) { emptyList() }.getOrElse(coord2.x, default)
 private fun Coord2.passableNeighbors(mazeArray: List<List<Char>>) = neighbors().filter { neighborCoord2 ->
     val c = mazeArray.getOrElse(neighborCoord2) { ' ' }
     c == '.'
@@ -449,7 +447,7 @@ data class Crossing(override val coord2: Coord2): MazePoint
 
 data class Path(val length: Int, val points: List<Pair<MazePoint, Int>>)
 
-class Maze(val mazeString: String) {
+class Maze(private val mazeString: String) {
     val mazeArray: List<List<Char>> by lazy { mazeString.split("\n").map { it.toList() } }
     val portals: Set<Portal> by lazy {
         mazeArray.coord2s().filter { mazeArray[it] == '.' }
@@ -467,13 +465,10 @@ class Maze(val mazeString: String) {
             }.filterNotNull().toSet()
     }
     val portalTo: Map<Portal, Portal> by lazy {
-        val h = portals.filter { it.name != "AA" && it.name != "ZZ" }
-            .toList()
-            .groupBy { it.name }
         portals.filter { it.name != "AA" && it.name != "ZZ" }
             .toList()
             .groupBy { it.name }
-            .flatMap {(name, portals) ->
+            .flatMap {(_, portals) ->
                 val portal1 = portals.getOrNull(0)
                 val portal2 = portals.getOrNull(1)
                 if (portal1 != null && portal2 != null)
@@ -483,11 +478,10 @@ class Maze(val mazeString: String) {
             .toMap()
     }
     val crossings: Set<Crossing> by lazy {
-        mazeArray.coord2s().filter { mazeArray[it] == '.' }
-            .map { coord2 ->
-                val connected = coord2.passableNeighbors(mazeArray)
-                if (connected.size >= 3) Crossing(coord2) else null
-            }.filterNotNull().toSet()
+        mazeArray.coord2s().filter { mazeArray[it] == '.' }.mapNotNull { coord2 ->
+            val connected = coord2.passableNeighbors(mazeArray)
+            if (connected.size >= 3) Crossing(coord2) else null
+        }.toSet()
     }
     val mazePoints by lazy {
         portals + crossings
