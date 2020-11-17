@@ -4,6 +4,7 @@ import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
+import java.lang.IllegalStateException
 
 /*
 --- Day 20: Donut Maze ---
@@ -187,12 +188,12 @@ class Day20Spec : Spek({
 
         describe("fallow path in maze") {
             it("should fallow a very short path") {
-                val path = simpleMaze.fallowPath(from = Coord2(9, 2), current = Coord2(9, 3), currentLength = 1)
+                val path = simpleMaze.fallowPath(from = Coord2(9, 2), current = Coord2(9, 3), currentLength = 1)!!
                 path.first `should equal` Crossing(Coord2(9, 3))
                 path.second `should equal` 1
             }
             it("should fallow a longer path") {
-                val path = simpleMaze.fallowPath(from = Coord2(9, 3), current = Coord2(10, 3), currentLength = 2)
+                val path = simpleMaze.fallowPath(from = Coord2(9, 3), current = Coord2(10, 3), currentLength = 2)!!
                 path.first `should equal` Crossing(Coord2(13, 15))
                 path.second `should equal` 25
             }
@@ -314,26 +315,93 @@ class Day20Spec : Spek({
                     ),
                 )
             }
-        }
-/*
-        describe("find all shortest path from a point") {
-            it("should find all shortest path from a point where no crossings are passed") {
-                val shortestPaths = findAllShortestPathInMaze(Coord2(9, 3), simpleMazeConnections)
-                shortestPaths.size `should equal` 26
+            it("should find the (shortest) path with a dead end") {
+                val verySimpleMazeString = """
+                             A
+                             A
+                      #######.#########
+                      #####.......#####
+                      ###########.#####
+                      ###########.#####
+                                 Z
+                                 Z 
+                """.trimIndent()
+                val verySimpleMaze = Maze(verySimpleMazeString)
+                val shortestPaths = findAllShortestPathInMaze(verySimpleMaze.start!!, verySimpleMaze)
+                shortestPaths `should equal` mapOf(
+                        Coord2(7, 2) to Path(0, emptyList()),
+                        Coord2(7, 3) to Path(1, listOf(Crossing(Coord2(7, 3)) to 1)),
+                        Coord2(11, 5) to Path(7, listOf(Crossing(Coord2(x=7, y=3)) to 1, Portal("ZZ", Coord2(11, 5)) to 6))
+                )
+            }
+            it("should find shortest pathes for the simple maze") {
+                val simpleMaze = Maze(simpleMazeString)
+                val shortestPaths = findAllShortestPathInMaze(simpleMaze.start!!, simpleMaze)
+                val shortestPathFromStartToEnd = shortestPaths[simpleMaze.end!!.coord2]!!
+                println(shortestPathFromStartToEnd)
+                shortestPathFromStartToEnd.length `should equal` 23
+                shortestPathFromStartToEnd `should equal` Path(length=23, points=listOf(
+                        Crossing(coord2=Coord2(x=9, y=3)) to 1,
+                        Portal(name="BC", coord2=Coord2(x=9, y=6)) to 3,
+                        Portal(name="BC", coord2=Coord2(x=2, y=8)) to 1,
+                        Portal(name="DE", coord2=Coord2(x=6, y=10)) to 6,
+                        Portal(name="DE", coord2=Coord2(x=2, y=13)) to 1,
+                        Portal(name="FG", coord2=Coord2(x=2, y=15)) to 4,
+                        Portal(name="FG", coord2=Coord2(x=11, y=12)) to 1,
+                        Crossing(coord2=Coord2(x=13, y=15)) to 5,
+                        Portal(name="ZZ", coord2=Coord2(x=13, y=16)) to 1
+                ))
+            }
+            it("should find shortest pathes for the bigger maze") {
+                val biggerMazeString = """
+                                   A
+                                   A
+                  #################.#############
+                  #.#...#...................#.#.#
+                  #.#.#.###.###.###.#########.#.#
+                  #.#.#.......#...#.....#.#.#...#
+                  #.#########.###.#####.#.#.###.#
+                  #.............#.#.....#.......#
+                  ###.###########.###.#####.#.#.#
+                  #.....#        A   C    #.#.#.#
+                  #######        S   P    #####.#
+                  #.#...#                 #......VT
+                  #.#.#.#                 #.#####
+                  #...#.#               YN....#.#
+                  #.###.#                 #####.#
+                DI....#.#                 #.....#
+                  #####.#                 #.###.#
+                ZZ......#               QG....#..AS
+                  ###.###                 #######
+                JO..#.#.#                 #.....#
+                  #.#.#.#                 ###.#.#
+                  #...#..DI             BU....#..LF
+                  #####.#                 #.#####
+                YN......#               VT..#....QG
+                  #.###.#                 #.###.#
+                  #.#...#                 #.....#
+                  ###.###    J L     J    #.#.###
+                  #.....#    O F     P    #.#...#
+                  #.###.#####.#.#####.#####.###.#
+                  #...#.#.#...#.....#.....#.#...#
+                  #.#####.###.###.#.#.#########.#
+                  #...#.#.....#...#.#.#.#.....#.#
+                  #.###.#####.###.###.#.#.#######
+                  #.#.........#...#.............#
+                  #########.###.###.#############
+                           B   J   C
+                           U   P   P
+                    
+                """.trimIndent()
+                val biggerMaze = Maze(biggerMazeString)
+                val shortestPaths = findAllShortestPathInMaze(biggerMaze.start!!, biggerMaze)
+                val shortestPathFromStartToEnd = shortestPaths[biggerMaze.end!!.coord2]!!
+                println(shortestPathFromStartToEnd)
+                shortestPathFromStartToEnd.length `should equal` 58
             }
         }
-        describe("find shortest path") {
-            it("should find the shortest path from AA to ZZ") {
-                val shortestPathLength = findShortestPathInMaze(Coord2(9, 2), Coord2(13, 16), simpleMazeConnections)
-                shortestPathLength `should equal` 26
-            }
-        }
- */
     }
 })
-
-
-fun findShortestPathInMaze(from: Portal, to: Portal, maze: Maze) = findAllShortestPathInMaze(from, maze)[to.coord2]
 
 fun findAllShortestPathInMaze(from: Portal, maze: Maze): Map<Coord2, Path> {
     val mazeConnections = maze.directConnectionsWithPortals
@@ -342,8 +410,7 @@ fun findAllShortestPathInMaze(from: Portal, maze: Maze): Map<Coord2, Path> {
         var newPathFound = false
         val newDiscovered = discovered.flatMap { (discoverdCoord2, discoveredPath) ->
             val nextConnections = mazeConnections[discoverdCoord2]
-            println("nextConnections=$nextConnections")
-            val h = if (nextConnections != null)
+            if (nextConnections != null)
                 nextConnections.mapNotNull { (toMazePoint, length) ->
                     val totalLength = discoveredPath.length + length
                     val nextPath = Path(totalLength, discoveredPath.points + listOf(toMazePoint to length))
@@ -351,24 +418,14 @@ fun findAllShortestPathInMaze(from: Portal, maze: Maze): Map<Coord2, Path> {
                     if (alreadyDiscoveredPath == null) {
                         newPathFound = true
                         toMazePoint.coord2 to nextPath
-                    } else null
-                }
-                    /*
-                    val alreadyDescoveredPath = discovered[toMazePoint.coord2]
-                    if (alreadyDescoveredPath != null) { // Check if the new path is better than the already found path
-                        if (alreadyDescoveredPath.length < totalLength) listOf(toMazePoint.coord2 to alreadyDescoveredPath)
-                        else listOf(toMazePoint.coord2 to nextPath)
-                    } else {
-                        newPathFound = true
-                        listOf(toMazePoint.coord2 to discoveredPath,
-                                toMazePoint.coord2 to nextPath
-                        )
+                    } else { // Check if the newly detected path is shorter
+                        if (alreadyDiscoveredPath.length > totalLength) {
+                            newPathFound = true
+                            toMazePoint.coord2 to nextPath
+                        } else null
                     }
                 }
-                     */
             else emptyList<Pair<Coord2, Path>>()
-            println("h=$h")
-            h
         }.toMap()
         if (! newPathFound) return discovered
         else discovered = discovered + newDiscovered
@@ -413,12 +470,10 @@ class Maze(val mazeString: String) {
         val h = portals.filter { it.name != "AA" && it.name != "ZZ" }
             .toList()
             .groupBy { it.name }
-        println("h=$h")
         portals.filter { it.name != "AA" && it.name != "ZZ" }
             .toList()
             .groupBy { it.name }
             .flatMap {(name, portals) ->
-                println("name=$name portals=$portals")
                 val portal1 = portals.getOrNull(0)
                 val portal2 = portals.getOrNull(1)
                 if (portal1 != null && portal2 != null)
@@ -439,6 +494,9 @@ class Maze(val mazeString: String) {
     }
     val start: Portal? by lazy {
         portals.find { it.name == "AA" }
+    }
+    val end: Portal? by lazy {
+        portals.find { it.name == "ZZ" }
     }
     val pointsByCoord: Map<Coord2, MazePoint> by lazy {
         (crossings + portals).map {
@@ -466,7 +524,7 @@ class Maze(val mazeString: String) {
 
     fun fallowPaths(from: Coord2): Set<Pair<MazePoint, Int>> {
         val connectedTos = from.passableNeighbors(mazeArray)
-        return connectedTos.map { connectedTo ->
+        return connectedTos.mapNotNull { connectedTo ->
             fallowPath(from, connectedTo, 1)
         }.toSet()
     }
@@ -475,13 +533,17 @@ class Maze(val mazeString: String) {
         from: Coord2,
         current: Coord2,
         currentLength: Int
-    ): Pair<MazePoint, Int> {
+    ): Pair<MazePoint, Int>? {
         val connectedTo = pointsByCoord[current]
         return if (connectedTo != null) connectedTo to currentLength
         else {
-            println("current=$current from=$from current.passableNeighbors(mazeArray)=${current.passableNeighbors(mazeArray)}")
-            val next = (current.passableNeighbors(mazeArray) - from).first()
-            fallowPath(current, next, currentLength + 1)
+            println("from=$from current=$current current.passableNeighbors(mazeArray)=${current.passableNeighbors(mazeArray)}")
+            val next = current.passableNeighbors(mazeArray) - from
+            when {
+                next.isEmpty() -> null // Dead end
+                next.size > 1 -> throw IllegalStateException("Only known maze points should have more than one connections current=$current $next")
+                else -> fallowPath(current, next.first(), currentLength + 1)
+            }
         }
     }
 }
