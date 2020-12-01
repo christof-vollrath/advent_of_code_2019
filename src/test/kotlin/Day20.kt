@@ -4,6 +4,7 @@ import org.amshove.kluent.`should equal`
 import org.jetbrains.spek.api.Spek
 import org.jetbrains.spek.api.dsl.describe
 import org.jetbrains.spek.api.dsl.it
+import org.jetbrains.spek.api.dsl.xdescribe
 import java.lang.IllegalStateException
 
 /*
@@ -612,13 +613,27 @@ class Day20Spec : Spek({
                     )),
             )
         }
-        describe("find the shortestPath in the recursive exercise") {
+        xdescribe("find the shortestPath in the recursive exercise") {
             val input = readResource("day20Input.txt")!!
             val maze = Maze(input)
             it("should find the all path from start to end") {
                 val paths = findAllPathsInMaze(maze.start!!, maze.end!!, maze)
                 paths.size `should equal` 4
             }
+        }
+
+        describe("find outer bound") {
+            simpleMaze.outerBounds.north `should equal` 2
+            simpleMaze.outerBounds.east `should equal` 18
+            simpleMaze.outerBounds.south `should equal` 16
+            simpleMaze.outerBounds.west `should equal` 2
+        }
+
+        describe("find inner bound") {
+            simpleMaze.innerBounds.north `should equal` 6
+            simpleMaze.innerBounds.east `should equal` 14
+            simpleMaze.innerBounds.south `should equal` 12
+            simpleMaze.innerBounds.west `should equal` 6
         }
     }
 
@@ -769,6 +784,102 @@ class Maze(private val mazeString: String) {
         }.toMap()
     }
 
+    val outerBounds: Bounds by lazy {
+        Bounds(
+                north = mazeArray.first().mapIndexed { x, _ ->
+                        mazeArray.map { lines ->
+                                lines[x]
+                            }
+                            .withIndex().find { (_, c) ->
+                                c != ' '
+                            }!!.index
+                        }
+                        .mostFrequent(),
+                east = mazeArray.map { lines ->
+                            lines.size - 1
+                        }
+                        .mostFrequent(),
+                south = mazeArray.first().mapIndexed { x, _ ->
+                            val rows = mazeArray.map { lines ->
+                                lines[x]
+                            }
+                            val posFromEnd =
+                                rows.reversed()
+                                .withIndex().find { (_, c) ->
+                                    c != ' '
+                                }!!.index
+                            rows.size - posFromEnd - 1
+                        }
+                        .mostFrequent(),
+                west = mazeArray.map { lines ->
+                            lines.withIndex().find { (_, c) ->
+                                c != ' '
+                            }!!.index
+                        }
+                        .mostFrequent(),
+        )
+    }
+
+    val innerBounds: Bounds by lazy {
+        val middleY = mazeArray.size / 2
+        val sizeX = mazeArray.map { it.size }.maxOf { it }
+        val middleX = sizeX / 2
+        Bounds(
+                north = (outerBounds.west until outerBounds.east).map { x ->
+                            val columns = mazeArray.map { lines ->
+                                lines.getOrElse(x) { ' '}
+                            }
+                            val posFromMiddle=
+                                    columns.take(middleY)
+                                            .reversed()
+                                            .withIndex().find { (_, c) ->
+                                                c != ' '
+                                            }!!.index
+                            middleY - posFromMiddle - 1
+                        }.filter { it != middleY - 1 }
+                        .mostFrequent(),
+                east = (outerBounds.north until outerBounds.south).map { y ->
+                            val rows = mazeArray[y]
+                            val posFromMiddle=
+                                    rows.drop(middleX + 1)
+                                            .withIndex().find { (_, c) ->
+                                                c != ' '
+                                            }!!.index
+                            posFromMiddle + middleX + 1
+                        }.filter { it != middleX + 1 }
+                        .mostFrequent(),
+                south = (outerBounds.west until outerBounds.east).map { x ->
+                            val columns = mazeArray.map { lines ->
+                                lines.getOrElse(x) { ' '}
+                            }
+                            val posFromMiddle=
+                                    columns.drop(middleY)
+                                            .withIndex().find { (_, c) ->
+                                                c != ' '
+                                            }!!.index
+                            middleY + posFromMiddle
+                        }.filter { it != middleY }
+                        .mostFrequent(),
+                west = (outerBounds.north until outerBounds.south).map { y ->
+                                    val rows = mazeArray[y]
+                                    val posFromMiddle=
+                                            rows.take(middleX)
+                                                    .reversed()
+                                                    .withIndex().find { (_, c) ->
+                                                        c != ' '
+                                                    }!!.index
+                                    middleX - posFromMiddle - 1
+                        }.filter { it != middleX - 1 }
+                        .mostFrequent(),
+        )
+    }
+
+    private fun Collection<Int>.mostFrequent() = groupBy { it }
+            .entries
+            .sortedByDescending { (_, value) -> value.size }
+            .first()
+            .key
+
     fun fallowPaths(from: Coord2): Set<Pair<MazePoint, Int>> {
         val connectedTos = from.passableNeighbors(mazeArray)
         return connectedTos.mapNotNull { connectedTo ->
@@ -793,3 +904,5 @@ class Maze(private val mazeString: String) {
         }
     }
 }
+
+data class Bounds(val north: Int, val east: Int, val south: Int, val west: Int)
